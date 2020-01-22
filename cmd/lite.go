@@ -19,9 +19,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/relayer/relayer"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	lite "github.com/tendermint/tendermint/lite2"
 )
 
 // liteCmd represents the lite command
@@ -30,7 +28,7 @@ var liteCmd = &cobra.Command{
 	Short: "Commands to manage lite clients created by this relayer",
 }
 
-// This command just primarily for testing but may be useful otherwise. Ideally this is implemented with the
+// This command is relatively redundant, just creates an auto-updating client and deleting it.
 var liteStartCmd = &cobra.Command{
 	Use:   "start [chain-id]",
 	Short: "This command starts the auto updating relayer and logs when new headers are recieved",
@@ -53,21 +51,6 @@ var liteStartCmd = &cobra.Command{
 		}
 
 		defer autoLite.Stop()
-
-		select {
-		case h := <-autoLite.TrustedHeaders():
-			fmt.Println("got header", h.Height)
-			// Output: got header 3
-		case err := <-autoLite.Errs():
-			switch errors.Cause(err).(type) {
-			case lite.ErrOldHeaderExpired:
-				// reobtain trust height and hash
-				return err
-			default:
-				// try with another full node
-				return err
-			}
-		}
 
 		return nil
 	},

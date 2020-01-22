@@ -1,9 +1,6 @@
 package relayer
 
 import (
-	"fmt"
-
-	"github.com/pkg/errors"
 	lite "github.com/tendermint/tendermint/lite2"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
 	dbm "github.com/tendermint/tm-db"
@@ -11,50 +8,8 @@ import (
 	"github.com/tendermint/tendermint/lite2/provider/http"
 )
 
-// StartAutoLiteClient creates and starts an auto lite client
-func (c *Chain) StartAutoLiteClient(homePath, homeDir string, cache int) error {
-	autoLite, err := c.NewAutoLiteClient(homePath, homeDir, cache)
-	if err != nil {
-		return err
-	}
-
-	c.AutoLiteClient = autoLite
-
-	go func() {
-		defer autoLite.Stop()
-
-		select {
-		case h := <-autoLite.TrustedHeaders():
-			fmt.Println("got header", h.Height)
-			// Output: got header 3
-		case err := <-autoLite.Errs():
-			switch errors.Cause(err).(type) {
-			case lite.ErrOldHeaderExpired:
-				// reobtain trust height and hash
-				fmt.Println("STOPPING LITE CLIENT FOR CHAIN", c.ChainID)
-				autoLite.Stop()
-			default:
-				fmt.Println("STOPPING LITE CLIENT FOR CHAIN", c.ChainID)
-				autoLite.Stop()
-			}
-		}
-	}()
-
-	return nil
-}
-
-// NewAutoLiteClient returns a new instance of the auto lite client
-func (c *Chain) NewAutoLiteClient(homePath, homeDir string, cache int) (*lite.AutoClient, error) {
-	cl, err := c.NewLiteClient(homePath, homeDir, cache)
-	if err != nil {
-		return &lite.AutoClient{}, err
-	}
-
-	return lite.NewAutoClient(cl, c.TrustOptions.Get().Period), nil
-}
-
-// NewLiteClient returns a new instance of the lite client
-func (c *Chain) NewLiteClient(path, homeDir string, cache int) (*lite.Client, error) {
+// NewAutoLiteClient returns a new instance of an automatic updating lite client
+func (c *Chain) NewAutoLiteClient(path, homeDir string, cache int) (*lite.Client, error) {
 	var out = &lite.Client{}
 
 	// Create lite.HTTP provider
@@ -80,8 +35,11 @@ func (c *Chain) NewLiteClient(path, homeDir string, cache int) (*lite.Client, er
 		c.TrustOptions.Hash = bl.Block.Header.Hash().Bytes()
 	}
 
+	// Set the update period
+	option := lite.UpdatePeriod(c.TrustOptions.Get().Period)
+
 	// Initialize the lite.Client
-	cl, err := lite.NewClient(c.ChainID, c.TrustOptions.Get(), p, dbs.New(db, c.ChainID))
+	cl, err := lite.NewClient(c.ChainID, c.TrustOptions.Get(), p, dbs.New(db, c.ChainID), option)
 	if err != nil {
 		return out, err
 	}
