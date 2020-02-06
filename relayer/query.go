@@ -11,8 +11,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -37,10 +37,10 @@ import (
 func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, error) {
 	var (
 		commit *ctypes.ResultCommit
-		err error
+		err    error
 	)
 	if height == 0 {
-		commit, err = c.Client.Commit()
+		commit, err = c.Client.Commit(nil)
 	} else {
 		commit, err = c.Client.Commit(&height)
 	}
