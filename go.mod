@@ -9,7 +9,6 @@ require (
 	github.com/golang/mock v1.3.1 // indirect
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.6.0 // indirect
 	github.com/prometheus/procfs v0.0.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20190704165056-9c2d0518ed81 // indirect
@@ -25,8 +24,8 @@ require (
 
 replace github.com/keybase/go-keychain => github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
 
-replace github.com/tendermint/tendermint => github.com/tendermint/tendermint v0.33.0-dev1
+replace github.com/tendermint/tendermint => github.com/tendermint/tendermint v0.33.1-dev0
 
-replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.34.4-0.20200205200903-b822566b2f16
+replace github.com/cosmos/cosmos-sdk => github.com/cosmos/cosmos-sdk v0.34.4-0.20200207135618-cd6176929a7c
 
 // replace github.com/cosmos/gaia => github.com/cosmos/gaia ibc-alpha
