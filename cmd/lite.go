@@ -57,9 +57,10 @@ var liteCmd = &cobra.Command{
 }
 
 func init() {
-	liteCmd.AddCommand(headerCmd())
+	liteCmd.AddCommand(liteHeaderCmd())
 	liteCmd.AddCommand(initLiteCmd())
 	liteCmd.AddCommand(updateLiteCmd())
+	liteCmd.AddCommand(deleteLiteCmd())
 }
 
 func initLiteCmd() *cobra.Command {
@@ -220,7 +221,7 @@ func updateLiteCmd() *cobra.Command {
 	return cmd
 }
 
-func headerCmd() *cobra.Command {
+func liteHeaderCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "header [chain-id] [height]",
 		Short: "Get header from the database. 0 returns last trusted header and " +
@@ -272,6 +273,29 @@ func headerCmd() *cobra.Command {
 			}
 
 			fmt.Println(string(out))
+			return nil
+		},
+	}
+	return cmd
+}
+
+func deleteLiteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete [chain-id]",
+		Short: "wipe the lite client database, forcing re-initialzation on the next run",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chainID := args[0]
+			chain, err := config.c.GetChain(chainID)
+			if err != nil {
+				return err
+			}
+
+			err = chain.DeleteLiteDB()
+			if err != nil {
+				return err
+			}
+
 			return nil
 		},
 	}

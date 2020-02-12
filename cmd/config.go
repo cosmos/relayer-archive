@@ -74,7 +74,7 @@ func setChains(c *Config, home string) error {
 		for _, cp := range i.Counterparties {
 			cps = append(cps, relayer.NewCounterparty(cp.ChainID, cp.ClientID))
 		}
-		homeDir := path.Join(home, i.ChainID)
+		homeDir := path.Join(home, liteDir)
 		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr, i.AccountPrefix, cps, i.Gas, i.GasAdjustment,
 			i.GasPrices, i.DefaultDenom, i.Memo, homePath, c.Global.LiteCacheSize, i.TrustingPeriod,
 			homeDir)
