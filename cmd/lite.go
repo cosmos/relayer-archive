@@ -27,22 +27,14 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	lite "github.com/tendermint/tendermint/lite2"
 )
 
 var (
-	flagHeight          = "height"
-	heightDesc          = "Trusted header's height"
-	heightDefault int64 = -1
-
-	flagHash    = "hash"
-	hashDesc    = "Trusted header's hash"
-	hashShort   = "x"
-	hashDefault = []byte{}
-
-	flagURL  = "url"
-	urlDesc  = "Optional URL to fetch trusted-hash and trusted-height"
-	urlShort = "u"
+	flagHeight = "height"
+	flagHash   = "hash"
+	flagURL    = "url"
 
 	flagForce    = "force"
 	forceDesc    = "Option to skip confirmation prompt for trusting hash & height from configured url"
@@ -135,12 +127,10 @@ func initLiteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int64(flagHeight, heightDefault, heightDesc)
-	cmd.Flags().BytesHexP(flagHash, hashShort, hashDefault, hashDesc)
-	cmd.Flags().StringP(flagURL, urlShort, "", urlDesc)
-	cmd.Flags().BoolP(flagForce, forceShort, false, forceDesc)
+	cmd.Flags().BoolP(flagForce, "f", false, "Option to skip confirmation prompt for trusting hash & height from configured url")
+	viper.BindPFlag(flagForce, cmd.Flags().Lookup(flagForce))
 
-	return cmd
+	return liteFlags(cmd)
 }
 
 func updateLiteCmd() *cobra.Command {
@@ -214,11 +204,7 @@ func updateLiteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().Int64(flagHeight, heightDefault, heightDesc)
-	cmd.Flags().BytesHexP(flagHash, hashShort, hashDefault, hashDesc)
-	cmd.Flags().StringP(flagURL, urlShort, "", urlDesc)
-
-	return cmd
+	return liteFlags(cmd)
 }
 
 func liteHeaderCmd() *cobra.Command {
@@ -328,6 +314,16 @@ func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
 	}
 
 	return
+}
+
+func liteFlags(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Int64(flagHeight, -1, "Trusted header's height")
+	cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
+	cmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
+	viper.BindPFlag(flagHeight, cmd.Flags().Lookup(flagHeight))
+	viper.BindPFlag(flagHash, cmd.Flags().Lookup(flagHash))
+	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	return cmd
 }
 
 func wrapQueryTrustOptsErr(err error) error {
