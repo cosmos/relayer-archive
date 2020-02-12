@@ -132,6 +132,9 @@ func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
 			panic(err)
 		}
 	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("can't open lite client database: %w", err)
+	}
 	return
 }
 

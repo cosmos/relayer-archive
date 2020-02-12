@@ -31,10 +31,23 @@ import (
 )
 
 var (
-	flagHeight = "height"
-	flagHash   = "hash"
-	flagURL    = "url"
-	flagForce  = "force"
+	flagHeight          = "height"
+	heightDesc          = "Trusted header's height"
+	heightDefault int64 = -1
+
+	flagHash    = "hash"
+	hashDesc    = "Trusted header's hash"
+	hashShort   = "x"
+	hashDefault = []byte{}
+
+	flagURL  = "url"
+	urlDesc  = "Optional URL to fetch trusted-hash and trusted-height"
+	urlShort = "u"
+
+	flagForce    = "force"
+	forceDesc    = "Option to skip confirmation prompt for trusting hash & height from configured url"
+	forceShort   = "f"
+	forceDefault = false
 )
 
 // chainCmd represents the keys command
@@ -44,26 +57,19 @@ var liteCmd = &cobra.Command{
 }
 
 func init() {
-	for _, cmd := range []*cobra.Command{initLiteCmd(), updateLiteCmd()} {
-		cmd.Flags().Int64P(flagHeight, "", -1, "Trusted header's height")
-		cmd.Flags().BytesHexP(flagHash, "x", []byte{}, "Trusted header's hash")
-		cmd.Flags().StringP(flagURL, "u", "", "Optional URL to fetch trusted-hash and trusted-height")
-		cmd.Flags().BoolP(flagForce, "f", false, "Option to skip confirmation prompt for trusting hash & height from configured url")
-
-		liteCmd.AddCommand(cmd)
-	}
-
 	liteCmd.AddCommand(headerCmd())
-	liteCmd.AddCommand(latestHeightCmd())
+	liteCmd.AddCommand(initLiteCmd())
+	liteCmd.AddCommand(updateLiteCmd())
 }
 
 func initLiteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [chain-id]",
 		Short: "Initiate the light client",
-		Long: `Initiate the light client by passing it a root of trust as a --hash
-		and --height, either directly or via --url. Use --force to skip
-		confirmation prompt.`,
+		Long: `Initiate the light client by:
+	1. passing it a root of trust as a --hash/-x and --height
+	2. via --url/-u where trust options can be found
+	3. Use --force/-f to initalize from the configured node`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
@@ -73,39 +79,65 @@ func initLiteCmd() *cobra.Command {
 
 			db, df, err := chain.NewLiteDB()
 			if err != nil {
-				return fmt.Errorf("can't open db connection: %w", err)
+				return err
 			}
 			defer df()
 
-			height, _ := cmd.Flags().GetInt64(flagHeight)
-			hash, _ := cmd.Flags().GetBytesHex(flagHash)
-			url, _ := cmd.Flags().GetString(flagURL)
+			height, err := cmd.Flags().GetInt64(flagHeight)
+			if err != nil {
+				return err
+			}
+			hash, err := cmd.Flags().GetBytesHex(flagHash)
+			if err != nil {
+				return err
+			}
+			url, err := cmd.Flags().GetString(flagURL)
+			if err != nil {
+				return err
+			}
+			force, err := cmd.Flags().GetBool(flagForce)
+			if err != nil {
+				return err
+			}
 
 			switch {
+			case force: // force initialization from trusted node
+				_, err = chain.TrustNodeInitClient(db)
+				if err != nil {
+					return err
+				}
 			case height > 0 && len(hash) > 0: // height and hash are given
 				_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hash))
 				if err != nil {
-					return fmt.Errorf("init failed: %w", err)
+					return wrapInitFailed(err)
 				}
-			case len(url) > 0: // URL is given
+			case len(url) > 0: // URL is given, query trust options
 				_, err := neturl.Parse(url)
 				if err != nil {
-					return fmt.Errorf("incorrect url: %w", err)
+					return wrapIncorrectURL(err)
 				}
-				// TODO: we should use the given url and force flag here
-				//
-				// initialize the lite client database by querying the configured node
-				_, err = chain.TrustNodeInitClient(db)
+
+				to, err := queryTrustOptions(url)
 				if err != nil {
-					return fmt.Errorf("init failed: %w", err)
+					return err
 				}
-			default:
-				return errors.New("expected either --hash & --height OR --url, none given")
+
+				_, err = chain.InitLiteClient(db, to)
+				if err != nil {
+					return wrapInitFailed(err)
+				}
+			default: // return error
+				return errInitWrongFlags
 			}
 
 			return nil
 		},
 	}
+
+	cmd.Flags().Int64(flagHeight, heightDefault, heightDesc)
+	cmd.Flags().BytesHexP(flagHash, hashShort, hashDefault, hashDesc)
+	cmd.Flags().StringP(flagURL, urlShort, "", urlDesc)
+	cmd.Flags().BoolP(flagForce, forceShort, false, forceDesc)
 
 	return cmd
 }
@@ -114,9 +146,10 @@ func updateLiteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update [chain-id]",
 		Short: "Update the light client by providing a new root of trust",
-		Long: `Update the light client by providing a new root of trust as a --hash
-		and --height, either directly or via --url. Use --force to skip
-		confirmation prompt.`,
+		Long: `Update the light client by
+	1. providing a new root of trust as a --hash/-x and --height
+	2. via --url/-u where trust options can be found
+	3. updating from the configured node by passing no flags`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
@@ -132,32 +165,34 @@ func updateLiteCmd() *cobra.Command {
 			case height > 0 && len(hash) > 0: // height and hash are given
 				db, df, err := chain.NewLiteDB()
 				if err != nil {
-					return fmt.Errorf("can't open db connection: %w", err)
+					return err
 				}
 				defer df()
 
 				_, err = chain.InitLiteClient(db, chain.TrustOptions(height, hash))
 				if err != nil {
-					return fmt.Errorf("init failed: %w", err)
+					return wrapInitFailed(err)
 				}
 			case len(url) > 0: // URL is given
 				_, err := neturl.Parse(url)
 				if err != nil {
-					return fmt.Errorf("incorrect url: %w", err)
+					return wrapIncorrectURL(err)
+				}
+
+				to, err := queryTrustOptions(url)
+				if err != nil {
+					return err
 				}
 
 				db, df, err := chain.NewLiteDB()
 				if err != nil {
-					return fmt.Errorf("can't open db connection: %w", err)
+					return err
 				}
 				defer df()
 
-				// TODO: we should use the given url and force flag here
-				//
-				// initialize the lite client database by querying the configured node
-				_, err = chain.TrustNodeInitClient(db)
+				_, err = chain.InitLiteClient(db, to)
 				if err != nil {
-					return fmt.Errorf("init failed: %w", err)
+					return wrapInitFailed(err)
 				}
 			default: // nothing is given => update existing client
 				// NOTE: "Update the light client by providing a new root of trust"
@@ -170,13 +205,18 @@ func updateLiteCmd() *cobra.Command {
 				// (i.e. not mix responsibilities).
 				err = chain.UpdateLiteDBToLatestHeader()
 				if err != nil {
-					return fmt.Errorf("can't update to latest header: %w", err)
+					return wrapIncorrectHeader(err)
 				}
 			}
 
 			return nil
 		},
 	}
+
+	cmd.Flags().Int64(flagHeight, heightDefault, heightDesc)
+	cmd.Flags().BytesHexP(flagHash, hashShort, hashDefault, hashDesc)
+	cmd.Flags().StringP(flagURL, urlShort, "", urlDesc)
+
 	return cmd
 }
 
@@ -238,32 +278,6 @@ func headerCmd() *cobra.Command {
 	return cmd
 }
 
-func latestHeightCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use: "latest-height [chain-id]",
-		Short: "Get header from relayer database. 0 returns last trusted header and " +
-			"all others return the header at that height if stored",
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chainID := args[0]
-			chain, err := config.c.GetChain(chainID)
-			if err != nil {
-				return err
-			}
-
-			// Get stored height
-			height, err := chain.GetLatestLiteHeader()
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(height.Height)
-			return nil
-		},
-	}
-	return cmd
-}
-
 func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
 	// fetch from URL
 	res, err := http.Get(url)
@@ -291,3 +305,21 @@ func queryTrustOptions(url string) (out lite.TrustOptions, err error) {
 
 	return
 }
+
+func wrapQueryTrustOptsErr(err error) error {
+	return fmt.Errorf("trust options query failed: %w", err)
+}
+
+func wrapInitFailed(err error) error {
+	return fmt.Errorf("init failed: %w", err)
+}
+
+func wrapIncorrectURL(err error) error {
+	return fmt.Errorf("incorrect URL: %w", err)
+}
+
+func wrapIncorrectHeader(err error) error {
+	return fmt.Errorf("update to latest header failed: %w", err)
+}
+
+var errInitWrongFlags = errors.New("expected either (--hash/-x & --height) OR --url/-u OR --force/-f, none given")
