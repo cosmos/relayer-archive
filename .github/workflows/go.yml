@@ -15,10 +15,6 @@ jobs:
         go-version: 1.13
       id: go
 
-    # create cache directory
-    - name: create upload directory
-      run: mkdir -p /tmp/build/
-
     # build gaiad/gaiacli
     - name: checkout gaia
       uses: actions/checkout@v2
@@ -32,14 +28,14 @@ jobs:
     - name: upload gaiacli binary
       uses: actions/upload-artifact@v1
       with:
-        name: gaiacli-${{ github.sha }}
+        name: gaiacli
         path: ./build/gaiacli
 
     # upload gaiad binary
     - name: upload gaiad binary
       uses: actions/upload-artifact@v1
       with:
-        name: gaiad-${{ github.sha }}
+        name: gaiad
         path: ./build/gaiad
 
     # build relayer
@@ -52,7 +48,7 @@ jobs:
     - name: upload binaries
       uses: actions/upload-artifact@v1
       with:
-        name: relayer-${{ github.sha }} 
+        name: relayer
         path: ./build/relayer
 
   test:
@@ -61,41 +57,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+    # Checkout the relayer repo
+    - name: Checkout relayer
+      uses: actions/checkout@v2
+
     # Make binary directory
     - name: create directory
       run: mkdir -p /tmp/build
-
-    # Checkout gaia to download the binaries
-    - name: Checkout gaia
-      uses: actions/checkout@v2
-      with:
-        repository: cosmos/gaia
-        ref: refs/heads/ibc-alpha
 
     # Download gaiad binary
     - name: download gaiad
       uses: actions/download-artifact@v1
       with:
-        name: gaiad-${{ github.sha }}  
-        path: /tmp/build/gaiad
+        name: gaiad
+        path: /tmp/build
 
     # Download gaiacli binary
     - name: download gaiacli
       uses: actions/download-artifact@v1
       with:
-        name: gaiacli-${{ github.sha }}  
-        path: /tmp/build/gaiacli
-
-    # Checkout the relayer repo
-    - name: Checkout relayer
-      uses: actions/checkout@v2
+        name: gaiacli
+        path: /tmp/build
 
     # Download binaries
     - name: download relayer
       uses: actions/download-artifact@v1
       with:
-        name: relayer-${{ github.sha }}  
-        path: /tmp/build/relayer
+        name: relayer  
+        path: /tmp/build
 
     # Run the ci-chains.sh test 
     - name: Run ci-chains check
