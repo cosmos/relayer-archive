@@ -47,16 +47,16 @@ $RELAYER --home $RLY_CONF keys restore ibc0 testkey "$(jq -r '.secret' ibc0/n0/g
 $RELAYER --home $RLY_CONF keys restore ibc1 testkey "$(jq -r '.secret' ibc1/n0/gaiacli/key_seed.json)" -a
 
 echo "Check account balances"
-$RElAYER --home $RLY_CONF q account ibc0
-$RElAYER --home $RLY_CONF q account ibc1
+$RELAYER --home $RLY_CONF q account ibc0
+$RELAYER --home $RLY_CONF q account ibc1
 
 echo "Initialize lite clients"
-$RElAYER --home $RLY_CONF lite init ibc0 -f
-$RElAYER --home $RLY_CONF lite init ibc1 -f
+$RELAYER --home $RLY_CONF lite init ibc0 -f
+$RELAYER --home $RLY_CONF lite init ibc1 -f
 
 echo "Create clients"
-$RElAYER --home $RLY_CONF tx client ibc0 ibc1 ibconeclient
-$RElAYER --home $RLY_CONF tx client ibc1 ibc0 ibczeroclient
+$RELAYER --home $RLY_CONF tx client ibc0 ibc1 ibconeclient
+$RELAYER --home $RLY_CONF tx client ibc1 ibc0 ibczeroclient
 
 
 echo "Query headers"
