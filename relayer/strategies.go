@@ -62,11 +62,11 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// If there is no client found matching, create the client
 	// TODO: ensure that this is the right condition
 	case dstClientState.ConsensusState.GetRoot().GetHash() == nil:
-		dstMsgs = append(dstMsgs, dst.CreateClient(src, dstAddr, "finddstclientid", srcHeader))
+		dstMsgs = append(dstMsgs, dst.CreateClient("finddstclientid", srcHeader))
 
 	// If there client is found update it with latest header
 	case dstClientState.ProofHeight < uint64(srcHeader.Height):
-		dstMsgs = append(dstMsgs, dst.UpdateClient(src, dstAddr, "finddstclientid", srcHeader))
+		dstMsgs = append(dstMsgs, dst.UpdateClient("finddstclientid", srcHeader))
 	}
 
 	// ICS2 : Clients - SrcClient
@@ -80,11 +80,11 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// If there is no matching client found, create it
 	// TODO: ensure that this is the right condition
 	case srcClientState.ConsensusState.GetRoot().GetHash() == nil:
-		srcMsgs = append(srcMsgs, src.CreateClient(dst, srcAddr, "findsrcclientid", dstHeader))
+		srcMsgs = append(srcMsgs, src.CreateClient("findsrcclientid", dstHeader))
 
 	// If there client is found update it with latest header
 	case srcClientState.ProofHeight < uint64(dstHeader.Height):
-		srcMsgs = append(srcMsgs, src.UpdateClient(dst, srcAddr, "findsrcclientid", dstHeader))
+		srcMsgs = append(srcMsgs, src.UpdateClient("findsrcclientid", dstHeader))
 	}
 
 	// ICS3 : Connections

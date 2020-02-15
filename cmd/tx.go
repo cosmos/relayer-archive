@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +31,15 @@ func init() {
 	transactionCmd.AddCommand(createChannelCmd())
 	transactionCmd.AddCommand(updateClientCmd())
 	transactionCmd.AddCommand(rawTransactionCmd)
-
+	rawTransactionCmd.AddCommand(connTry())
+	rawTransactionCmd.AddCommand(connAck())
+	rawTransactionCmd.AddCommand(connConfirm())
+	rawTransactionCmd.AddCommand(chanInit())
+	rawTransactionCmd.AddCommand(chanTry())
+	rawTransactionCmd.AddCommand(chanAck())
+	rawTransactionCmd.AddCommand(chanConfirm())
+	rawTransactionCmd.AddCommand(chanCloseInit())
+	rawTransactionCmd.AddCommand(chanCloseConfirm())
 }
 
 // transactionCmd represents the tx command
@@ -65,7 +74,7 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsg(chains[src].UpdateClient(chains[dst], chains[src].MustGetAddress(), args[2], dstHeader))
+			res, err := chains[src].SendMsg(chains[src].UpdateClient(args[2], dstHeader))
 			if err != nil {
 				return err
 			}
@@ -101,7 +110,7 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsg(chains[src].CreateClient(chains[dst], chains[src].MustGetAddress(), args[2], dstHeader))
+			res, err := chains[src].SendMsg(chains[src].CreateClient(args[2], dstHeader))
 			if err != nil {
 				return err
 			}
@@ -141,7 +150,7 @@ func createClientsCmd() *cobra.Command {
 				}
 			}
 
-			res, err := chains[src].SendMsg(chains[src].CreateClient(chains[dst], chains[src].MustGetAddress(), args[2], headers.Map[dst]))
+			res, err := chains[src].SendMsg(chains[src].CreateClient(args[2], headers.Map[dst]))
 			if err != nil {
 				return err
 			}
@@ -151,7 +160,7 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			res, err = chains[dst].SendMsg(chains[dst].CreateClient(chains[src], chains[dst].MustGetAddress(), args[3], headers.Map[src]))
+			res, err = chains[dst].SendMsg(chains[dst].CreateClient(args[3], headers.Map[src]))
 			if err != nil {
 				return err
 			}
@@ -232,25 +241,26 @@ var rawTransactionCmd = &cobra.Command{
 
 func connInit() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "conn-init [src-chain-id] [dst-chain-id]",
+		Use:   "conn-init [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-init",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			src, _ := args[0], args[1]
+			srcClient, dstClient := args[2], args[3]
+			srcConn, dstConn := args[4], args[5]
+			srcChain, err := config.c.GetChain(src)
 			if err != nil {
 				return err
 			}
 
-			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
-			if len(errs) != 0 {
-				for _, err := range errs {
-					fmt.Println(err)
-					return nil
-				}
+			res, err := srcChain.SendMsg(
+				srcChain.ConnInit(srcConn, srcClient, dstConn, dstClient))
+
+			if err != nil {
+				return nil
 			}
 
-			return PrintOutput(errs, cmd)
+			return PrintOutput(res, cmd)
 		},
 	}
 	return outputFlags(cmd)
@@ -258,11 +268,13 @@ func connInit() *cobra.Command {
 
 func connTry() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "conn-try [src-chain-id] [dst-chain-id]",
+		Use:   "conn-try [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id]",
 		Short: "conn-try",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
+			srcClient, dstClient := args[2], args[3]
+			srcConn, dstConn := args[4], args[5]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
@@ -276,7 +288,28 @@ func connTry() *cobra.Command {
 				}
 			}
 
-			return PrintOutput(errs, cmd)
+			headers, errs := relayer.GetLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			dstState, err := chains[dst].QueryConnection(dstConn, headers.Map[dst].Height)
+			if err != nil {
+				return err
+			}
+
+			res, err := chains[src].SendMsgs([]sdk.Msg{
+				chains[src].ConnTry(srcClient, dstClient, srcConn, dstConn, dstState, headers.Map[src].Height),
+				chains[src].UpdateClient(srcClient, headers.Map[dst])})
+
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
 		},
 	}
 	return outputFlags(cmd)
@@ -284,11 +317,13 @@ func connTry() *cobra.Command {
 
 func connAck() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "conn-ack [src-chain-id] [dst-chain-id]",
+		Use:   "conn-ack [src-chain-id] [dst-chain-id] [src-conn-id] [dst-conn-id] [src-client-id]",
 		Short: "conn-ack",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
+			srcConn, dstConn := args[2], args[3]
+			srcClient := args[4]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
@@ -302,7 +337,28 @@ func connAck() *cobra.Command {
 				}
 			}
 
-			return PrintOutput(errs, cmd)
+			headers, errs := relayer.GetLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			dstState, err := chains[dst].QueryConnection(dstConn, headers.Map[dst].Height)
+			if err != nil {
+				return err
+			}
+
+			res, err := chains[src].SendMsgs([]sdk.Msg{
+				chains[src].ConnAck(srcConn, dstState, headers.Map[src].Height),
+				chains[src].UpdateClient(srcClient, headers.Map[dst])})
+
+			if err != nil {
+				return nil
+			}
+
+			return PrintOutput(res, cmd)
 		},
 	}
 	return outputFlags(cmd)
@@ -310,11 +366,13 @@ func connAck() *cobra.Command {
 
 func connConfirm() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "conn-confirm [src-chain-id] [dst-chain-id]",
+		Use:   "conn-confirm [src-chain-id] [dst-chain-id] [src-conn-id] [dst-conn-id] [src-client-id]",
 		Short: "conn-confirm",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
+			srcConn, dstConn := args[2], args[3]
+			srcClient := args[4]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
 				return err
@@ -328,7 +386,28 @@ func connConfirm() *cobra.Command {
 				}
 			}
 
-			return PrintOutput(errs, cmd)
+			headers, errs := relayer.GetLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			dstState, err := chains[dst].QueryConnection(dstConn, headers.Map[dst].Height)
+			if err != nil {
+				return err
+			}
+
+			res, err := chains[src].SendMsgs([]sdk.Msg{
+				chains[src].ConnConfirm(srcConn, dstState, headers.Map[src].Height),
+				chains[src].UpdateClient(srcClient, headers.Map[dst])})
+
+			if err != nil {
+				return nil
+			}
+
+			return PrintOutput(res, cmd)
 		},
 	}
 	return outputFlags(cmd)
