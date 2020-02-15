@@ -1,17 +1,21 @@
-name: Go
+name: Build then run CI Chains
+
 on: [push]
+
 jobs:
 
   build:
-    name: Build
+    name: build
     runs-on: ubuntu-latest
     steps:
+    # Install and setup go
     - name: Set up Go 1.13
       uses: actions/setup-go@v1
       with:
         go-version: 1.13
       id: go
 
+    # create cache directory
     - name: create cache directory
       run: mkdir -p /tmp/build/
 
@@ -39,4 +43,27 @@ jobs:
       uses: actions/cache@v1.1.2
       with:
         path: /tmp/build/  
-        key: relayer-${{ $GITHUB_REF }}-${{ $GITHUB_SHA }}
+        key: relayer-$GITHUB_REF-$GITHUB_SHA
+
+  test:
+    name: test-liveness
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+
+    # Restore gaia* and relayer from cache
+    - name: restore cache
+      uses: actions/cache@v1.1.2
+      with:
+        path: /tmp/build/  
+        key: relayer-$GITHUB_REF-$GITHUB_SHA
+
+    # Checkout the relayer repo
+    - name: Checkout relayer
+      uses: actions/checkout@v2
+ 
+    # Run the ci-chains.sh test 
+    - name: Run ci-chains.sh check
+      run: |
+        ./ci-chains.sh
+
