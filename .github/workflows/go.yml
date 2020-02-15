@@ -43,7 +43,7 @@ jobs:
       uses: actions/cache@v1.1.2
       with:
         path: /tmp/build/  
-        key: relayer-$GITHUB_REF-$GITHUB_SHA
+        key: relayer-${{ runner.os }}-${{ github.sha }}
 
   test:
     name: test-liveness
@@ -56,14 +56,14 @@ jobs:
       uses: actions/cache@v1.1.2
       with:
         path: /tmp/build/  
-        key: relayer-$GITHUB_REF-$GITHUB_SHA
+        key: relayer-${{ runner.os }}-${{ github.sha }}
 
     # Checkout the relayer repo
     - name: Checkout relayer
       uses: actions/checkout@v2
  
     # Run the ci-chains.sh test 
-    - name: Run ci-chains.sh check
+    - name: Run ci-chains check
       run: |
         ./ci-chains.sh
 
