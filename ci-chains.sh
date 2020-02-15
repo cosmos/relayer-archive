@@ -62,12 +62,12 @@ $RELAYER --home $RLY_CONF tx client ibc0 ibc1 ibconeclient
 $RELAYER --home $RLY_CONF tx client ibc1 ibc0 ibczeroclient
 
 echo "Query headers"
-$RELAYER --home $RLY_CONF header ibc0   
-$RELAYER --home $RLY_CONF header ibc0
+$RELAYER --home $RLY_CONF q header ibc0   
+$RELAYER --home $RLY_CONF q header ibc0
 
 echo "Query node-state"
-$RELAYER --home $RLY_CONF node-state ibc0   
-$RELAYER --home $RLY_CONF node-state ibc0   
+$RELAYER --home $RLY_CONF q node-state ibc0   
+$RELAYER --home $RLY_CONF q node-state ibc0   
 
 echo "Querying client states"
 $RELAYER --home $RLY_CONF q client ibc0 ibconeclient 
