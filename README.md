@@ -52,7 +52,6 @@ $ relayer --home $RLY q channel ibc1 ibczerochan bank
 
 # TODO: figure out the commands to flush and send packets from chain to chain
 ```
-
 ### Current Work:
 
 - [ ] `query` - https://github.com/cosmos/relayer/issues/19
