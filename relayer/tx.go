@@ -189,6 +189,46 @@ func (c *Chain) SendMsg(datagram sdk.Msg) (sdk.TxResponse, error) {
 	return c.SendMsgs([]sdk.Msg{datagram})
 }
 
+func (src *Chain) ConnInit(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ConnTry(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ConnAck(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ConnConfirm(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ChanInit(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ChanTry(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ChanAck(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ChanConfirm(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ChanCloseInit(dst *Chain) sdk.Msg {
+	return nil
+}
+
+func (src *Chain) ChanCloseConfirm(dst *Chain) sdk.Msg {
+	return nil
+}
+
 // SendMsgs wraps the msgs in a stdtx, signs and sends it
 func (c *Chain) SendMsgs(datagram []sdk.Msg) (sdk.TxResponse, error) {
 

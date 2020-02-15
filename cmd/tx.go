@@ -29,6 +29,8 @@ func init() {
 	transactionCmd.AddCommand(createConnectionCmd())
 	transactionCmd.AddCommand(createChannelCmd())
 	transactionCmd.AddCommand(updateClientCmd())
+	transactionCmd.AddCommand(rawTransactionCmd)
+
 }
 
 // transactionCmd represents the tx command
@@ -217,4 +219,273 @@ func createChannelCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+////////////////////////////////////////
+////  RAW IBC TRANSACTION COMMANDS  ////
+////////////////////////////////////////
+
+var rawTransactionCmd = &cobra.Command{
+	Use:   "raw",
+	Short: "raw connection and channel steps",
+}
+
+func connInit() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "conn-init [src-chain-id] [dst-chain-id]",
+		Short: "conn-init",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func connTry() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "conn-try [src-chain-id] [dst-chain-id]",
+		Short: "conn-try",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func connAck() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "conn-ack [src-chain-id] [dst-chain-id]",
+		Short: "conn-ack",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func connConfirm() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "conn-confirm [src-chain-id] [dst-chain-id]",
+		Short: "conn-confirm",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func chanInit() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chan-init [src-chain-id] [dst-chain-id]",
+		Short: "chan-init",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func chanTry() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chan-try [src-chain-id] [dst-chain-id]",
+		Short: "chan-try",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func chanAck() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chan-ack [src-chain-id] [dst-chain-id]",
+		Short: "chan-ack",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func chanConfirm() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chan-confirm [src-chain-id] [dst-chain-id]",
+		Short: "chan-confirm",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func chanCloseInit() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chan-close-init [src-chain-id] [dst-chain-id]",
+		Short: "chan-close-init",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
+}
+
+func chanCloseConfirm() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "chan-close-confirm [src-chain-id] [dst-chain-id]",
+		Short: "chan-close-confirm",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			errs := relayer.UpdateLiteDBsToLatestHeaders(chains[src], chains[dst])
+			if len(errs) != 0 {
+				for _, err := range errs {
+					fmt.Println(err)
+					return nil
+				}
+			}
+
+			return PrintOutput(errs, cmd)
+		},
+	}
+	return outputFlags(cmd)
 }
