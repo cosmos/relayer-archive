@@ -16,34 +16,44 @@ jobs:
       id: go
 
     # create cache directory
-    - name: create cache directory
+    - name: create upload directory
       run: mkdir -p /tmp/build/
 
-    # build and move gaiad/gaiacli
+    # build gaiad/gaiacli
     - name: checkout gaia
       uses: actions/checkout@v2
       with:
         repository: cosmos/gaia
         ref: refs/heads/ibc-alpha
-    - name: build binary and move to cache location
-      run: |
-        make build
-        mv ./build/* /tmp/build/
+    - name: build binary
+      run: make build
 
-      # build and move the relayer
+    # upload gaiacli binary
+    - name: upload gaiacli binary
+      uses: actions/upload-artifact@v1
+      with:
+        name: gaiacli-${{ github.sha }}
+        path: ./build/gaiacli
+
+    # upload gaiad binary
+    - name: upload gaiad binary
+      uses: actions/upload-artifact@v1
+      with:
+        name: gaiad-${{ github.sha }}
+        path: ./build/gaiad
+
+    # build relayer
     - name: checkout relayer
       uses: actions/checkout@v2
-    - name: build binary and move to cache location
-      run: |
-        make build
-        mv ./build/* /tmp/build/
-    
-    # cache resulting binaries
-    - name: cache binaries
-      uses: actions/cache@v1.1.2
+    - name: build binary and move to upload location
+      run: make build
+
+    # upload resulting binaries
+    - name: upload binaries
+      uses: actions/upload-artifact@v1
       with:
-        path: /tmp/build/  
-        key: relayer-${{ runner.os }}-${{ github.sha }}
+        name: relayer-${{ github.sha }} 
+        path: ./build/relayer
 
   test:
     name: test-liveness
@@ -51,17 +61,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    # Restore gaia* and relayer from cache
-    - name: restore cache
-      uses: actions/cache@v1.1.2
+    # Make binary directory
+    - name: create directory
+      run: mkdir -p /tmp/build
+
+    # Checkout gaia to download the binaries
+    - name: Checkout gaia
+      uses: actions/checkout@v2
       with:
-        path: /tmp/build/  
-        key: relayer-${{ runner.os }}-${{ github.sha }}
+        repository: cosmos/gaia
+        ref: refs/heads/ibc-alpha
+
+    # Download gaiad binary
+    - name: download gaiad
+      uses: actions/download-artifact@v1
+      with:
+        name: gaiad-${{ github.sha }}  
+        path: /tmp/build/gaiad
+
+    # Download gaiacli binary
+    - name: download gaiacli
+      uses: actions/download-artifact@v1
+      with:
+        name: gaiacli-${{ github.sha }}  
+        path: /tmp/build/gaiacli
 
     # Checkout the relayer repo
     - name: Checkout relayer
       uses: actions/checkout@v2
- 
+
+    # Download binaries
+    - name: download relayer
+      uses: actions/download-artifact@v1
+      with:
+        name: relayer-${{ github.sha }}  
+        path: /tmp/build/relayer
+
     # Run the ci-chains.sh test 
     - name: Run ci-chains check
       run: |
