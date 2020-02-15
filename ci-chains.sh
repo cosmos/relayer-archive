@@ -46,6 +46,9 @@ echo "Adding gaiacli keys to the relayer"
 $RELAYER --home $RLY_CONF keys restore ibc0 testkey "$(jq -r '.secret' ibc0/n0/gaiacli/key_seed.json)" -a
 $RELAYER --home $RLY_CONF keys restore ibc1 testkey "$(jq -r '.secret' ibc1/n0/gaiacli/key_seed.json)" -a
 
+echo "Wait for first block"
+sleep 12
+
 echo "Check account balances"
 $RELAYER --home $RLY_CONF q account ibc0
 $RELAYER --home $RLY_CONF q account ibc1
@@ -57,7 +60,6 @@ $RELAYER --home $RLY_CONF lite init ibc1 -f
 echo "Create clients"
 $RELAYER --home $RLY_CONF tx client ibc0 ibc1 ibconeclient
 $RELAYER --home $RLY_CONF tx client ibc1 ibc0 ibczeroclient
-
 
 echo "Query headers"
 $RELAYER --home $RLY_CONF header ibc0   
