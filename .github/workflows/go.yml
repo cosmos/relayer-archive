@@ -15,6 +15,14 @@ jobs:
         go-version: 1.13
       id: go
 
+    # Restore build cache
+    - uses: actions/cache@v1
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
     # build gaiad/gaiacli
     - name: checkout gaia
       uses: actions/checkout@v2
@@ -85,6 +93,10 @@ jobs:
       with:
         name: relayer  
         path: /tmp/build
+
+    # Make binaries executable
+    - name: chmod
+      run: chmod +x /tmp/build/*
 
     # Run the ci-chains.sh test 
     - name: Run ci-chains check
