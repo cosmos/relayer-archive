@@ -1,4 +1,4 @@
-  name: CI
+name: CI
 
 on: [push]
 
@@ -8,27 +8,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Go 1.13
-      uses: actions/setup-go@v1
+
+    # Restore gaia* and relayer from cache
+    - name: restore cache
+      uses: actions/cache@v1.1.2
       with:
-        go-version: 1.13
-      id: go
-    - name: Set up Go 1.13
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.13
-      id: go
-    - name: Checkout Gaia
-      uses: actions/checkout@master
-      with:
-        repository: cosmos/gaia
-        ref: refs/heads/ibc-alpha
-    - name: Install Gaia
-      run: make install
+        path: /tmp/build/  
+        key: relayer-${{ $GITHUB_REF }}-${{ $GITHUB_SHA }}
+
+    # Checkout the relayer repo
     - name: Checkout relayer
       uses: actions/checkout@v2
-    - name: Install Relayer
-      run: make install
-    - name: Run two-chains.sh demo
+ 
+    # Run the ci-chains.sh test 
+    - name: Run ci-chains.sh check
       run: |
-        ./two-chains.sh
+        ./ci-chains.sh

@@ -6,31 +6,37 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-
     - name: Set up Go 1.13
       uses: actions/setup-go@v1
       with:
         go-version: 1.13
       id: go
 
-    - name: Check out code into the Go module directory
+    - name: create cache directory
+      run: mkdir -p /tmp/build/
+
+    # build and move gaiad/gaiacli
+    - name: checkout gaia
       uses: actions/checkout@v2
-
-    - name: Get dependencies
+      with:
+        repository: cosmos/gaia
+        ref: refs/heads/ibc-alpha
+    - name: build binary and move to cache location
       run: |
-        go get -v -t -d ./...
-        if [ -f Gopkg.toml ]; then
-            curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-            dep ensure
-        fi
+        make build
+        mv ./build/* /tmp/builds/
 
-    - name: Build
-      run: make build
-
-    - name: Cache
+      # build and move the relayer
+    - name: checkout relayer
+      uses: actions/checkout@v2
+    - name: build binary and move to cache location
+      run: |
+        make build
+        mv ./build/* /tmp/builds/
+    
+    # cache resulting binaries
+    - name: cache binaries
       uses: actions/cache@v1.1.2
       with:
-        # A directory to store and save the cache
-        path: ./build  
-        # An explicit key for restoring and saving the cache
-        key: $(git rev-parse HEAD)
+        path: /tmp/build/  
+        key: relayer-${{ $GITHUB_REF }}-${{ $GITHUB_SHA }}
