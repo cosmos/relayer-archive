@@ -28,7 +28,7 @@ jobs:
     - name: build binary and move to cache location
       run: |
         make build
-        mv ./build/* /tmp/builds/
+        mv ./build/* /tmp/build/
 
       # build and move the relayer
     - name: checkout relayer
@@ -36,7 +36,7 @@ jobs:
     - name: build binary and move to cache location
       run: |
         make build
-        mv ./build/* /tmp/builds/
+        mv ./build/* /tmp/build/
     
     # cache resulting binaries
     - name: cache binaries
