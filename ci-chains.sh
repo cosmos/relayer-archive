@@ -20,7 +20,8 @@ echo -e "\n" | $GAIAD testnet -o ibc0 --v 1 --chain-id ibc0 --node-dir-prefix n
 echo -e "\n" | $GAIAD testnet -o ibc1 --v 1 --chain-id ibc1 --node-dir-prefix n
 
 echo "Generating relayer configurations..."
-mkdir $RLY_CONF/config
+mkdir -p $RLY_CONF/config
+echo "cp $(pwd)/two-chains.yaml $RLY_CONF/config/config.yaml"
 cp $(pwd)/two-chains.yaml $RLY_CONF/config/config.yaml
 
 sed -i 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
