@@ -1,8 +1,8 @@
 #!/bin/bash
 
-GAIAD="/tmp/builds/gaiad"
-GAIACLI="/tmp/builds/gaiacli"
-RELAYER="/tmp/builds/relayer"
+GAIAD="/tmp/build/gaiad"
+GAIACLI="/tmp/build/gaiacli"
+RELAYER="/tmp/build/relayer"
 
 GAIA_CONF=$(mktemp -d)
 RLY_CONF=$(mktemp -d)
