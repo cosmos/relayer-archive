@@ -61,7 +61,7 @@ type safeChainErrors struct {
 	Map map[*Chain]error
 }
 
-func UpdateLiteDBsToLatestHeaders(chains ...*Chain) []error {
+func UpdateLiteDBsToLatestHeaders(chains ...*Chain) error {
 	errs := safeChainErrors{Map: make(map[*Chain]error)}
 	var wg sync.WaitGroup
 	for _, chain := range chains {
@@ -80,10 +80,10 @@ func UpdateLiteDBsToLatestHeaders(chains ...*Chain) []error {
 		}(&errs, &wg, chain)
 	}
 	wg.Wait()
-	out := []error{}
+	var out error
 	for c, err := range errs.Map {
 		if err != nil {
-			out = append(out, fmt.Errorf("%w on %s", err, c.ChainID))
+			out = fmt.Errorf("%s err: %w\n", c.ChainID, err)
 		}
 	}
 	return out
@@ -203,24 +203,32 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 // Headers is the return type for multiple signed headers coming back from the database
 type Headers struct {
 	sync.Mutex
-	Map map[string]*tmclient.Header
+	Map  map[string]*tmclient.Header
+	Errs []error
+}
+
+var (h *Headers) err() error {
+	var out error
+	for _, err := range h.Errs {
+		out = fmt.Errorf("err: %w\n", err)
+	}
+	return out
 }
 
 // GetLatestHeaders returns
-func GetLatestHeaders(chains ...*Chain) (Headers, []error) {
-	headers := Headers{Map: make(map[string]*tmclient.Header)}
-	errs := []error{}
+func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
+	hs := &Headers{Map: make(map[string]*tmclient.Header), Errs: []error{}}
 	var wg sync.WaitGroup
 	for _, chain := range chains {
 		wg.Add(1)
-		go func(headers *Headers, wg *sync.WaitGroup, chain *Chain) {
+		go func(hs *Headers, wg *sync.WaitGroup, chain *Chain) {
 			header, err := chain.GetLatestLiteHeader()
-			headers.Map[chain.ChainID] = header
+			hs.Map[chain.ChainID] = header
 			if err != nil {
-				errs = append(errs, err)
+				hs.Errs = append(hs.Errs, err)
 			}
 			wg.Done()
-		}(&headers, &wg, chain)
+		}(hs, &wg, chain)
 	}
 	wg.Wait()
 	return headers, errs

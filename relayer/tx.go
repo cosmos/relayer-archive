@@ -59,25 +59,19 @@ func (src *Chain) CreateConnectionStep(dst *Chain,
 	out := &RelayMsgs{}
 
 	errs := UpdateLiteDBsToLatestHeaders(src, dst)
-	if len(errs) != 0 {
-		for _, err := range errs {
-			return nil, err
-		}
+	if err != nil {
+		return err
 	}
-
 	hs, errs := GetLatestHeaders(src, dst)
-	if len(errs) != 0 {
-		for _, err := range errs {
-			return nil, err
-		}
+	if err != nil {
+		return err
 	}
-
-	srcEnd, err := src.QueryConnection(srcConnectionID, hs.Map[src.ChainID].Height)
+	srcEnd, err := src.QueryConnection(srcConnectionID, hs[src.ChainID].Height)
 	if err != nil {
 		return nil, err
 	}
 
-	dstEnd, err := dst.QueryConnection(dstConnectionID, hs.Map[src.ChainID].Height)
+	dstEnd, err := dst.QueryConnection(dstConnectionID, hs[src.ChainID].Height)
 	if err != nil {
 		return nil, err
 	}
@@ -90,18 +84,18 @@ func (src *Chain) CreateConnectionStep(dst *Chain,
 
 	// Handshake has started locally (1 step done), relay `connOpenTry` to the remote end
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.UNINITIALIZED:
-		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs.Map[src.ChainID]),
-			dst.ConnTry(dstClientID, srcClientID, dstConnectionID, srcConnectionID, srcEnd, hs.Map[src.ChainID].Height))
+		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs[src.ChainID]),
+			dst.ConnTry(dstClientID, srcClientID, dstConnectionID, srcConnectionID, srcEnd, hs[src.ChainID].Height))
 
 	// Handshake has started on the other end (2 steps done), relay `connOpenAck` to the local end
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.TRYOPEN:
-		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs.Map[dst.ChainID]),
-			src.ConnAck(srcConnectionID, dstEnd, hs.Map[src.ChainID].Height))
+		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs[dst.ChainID]),
+			src.ConnAck(srcConnectionID, dstEnd, hs[src.ChainID].Height))
 
 	// Handshake has confirmed locally (3 steps done), relay `connOpenConfirm` to the remote end
 	case srcEnd.Connection.State == connState.OPEN && dstEnd.Connection.State == connState.TRYOPEN:
-		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs.Map[src.ChainID]),
-			dst.ConnConfirm(dstConnectionID, srcEnd, hs.Map[dst.ChainID].Height))
+		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs[src.ChainID]),
+			dst.ConnConfirm(dstConnectionID, srcEnd, hs[dst.ChainID].Height))
 	default:
 		fmt.Printf("srcEnd.Connection %#v\n", srcEnd.Connection)
 		fmt.Printf("dstEnd.Connection %#v\n", dstEnd.Connection)

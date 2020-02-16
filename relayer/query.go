@@ -289,23 +289,40 @@ func (c *Chain) QueryLatestHeight() (int64, error) {
 	return res.SyncInfo.LatestBlockHeight, nil
 }
 
-func QueryLatestHeights(chains ...*Chain) (map[string]int64, []error) {
-	heights := make(map[string]int64)
-	errs := []error{}
+type heights struct {
+	sync.Mutex
+	Map  map[string]int64
+	Errs []error
+}
+
+func (h *heights) err() error {
+	var out error
+	for _, err := range h.Errs {
+		out = fmt.Errorf("err: %w\n", err)
+	}
+	return out
+}
+
+func (h *heights) out() map[string]int64 {
+	return h.Map
+}
+
+func QueryLatestHeights(chains ...*Chain) (map[string]int64, error) {
+	hs := &heights{Map: make(map[string]int64), Errs: []error{}}
 	var wg sync.WaitGroup
 	for _, chain := range chains {
 		wg.Add(1)
-		go func(heights map[string]int64, wg *sync.WaitGroup, chain *Chain) {
+		go func(hs *heights, wg *sync.WaitGroup, chain *Chain) {
 			height, err := chain.QueryLatestHeight()
 			heights[chain.ChainID] = height
 			if err != nil {
 				errs = append(errs, err)
 			}
 			wg.Done()
-		}(heights, &wg, chain)
+		}(hs, &wg, chain)
 	}
 	wg.Wait()
-	return heights, errs
+	return hs.out(), hs.err()
 }
 
 // QueryLatestHeader returns the latest header from the chain
