@@ -314,10 +314,15 @@ func QueryLatestHeights(chains ...*Chain) (map[string]int64, error) {
 		wg.Add(1)
 		go func(hs *heights, wg *sync.WaitGroup, chain *Chain) {
 			height, err := chain.QueryLatestHeight()
-			heights[chain.ChainID] = height
+
 			if err != nil {
-				errs = append(errs, err)
+				hs.Lock()
+				hs.Errs = append(hs.Errs, err)
+				hs.Unlock()
 			}
+			hs.Lock()
+			hs.Map[chain.ChainID] = height
+			hs.Unlock()
 			wg.Done()
 		}(hs, &wg, chain)
 	}

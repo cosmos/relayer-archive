@@ -201,13 +201,13 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 }
 
 // Headers is the return type for multiple signed headers coming back from the database
-type Headers struct {
+type header struct {
 	sync.Mutex
 	Map  map[string]*tmclient.Header
 	Errs []error
 }
 
-var (h *Headers) err() error {
+func (h *header) err() error {
 	var out error
 	for _, err := range h.Errs {
 		out = fmt.Errorf("err: %w\n", err)
@@ -217,11 +217,11 @@ var (h *Headers) err() error {
 
 // GetLatestHeaders returns
 func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	hs := &Headers{Map: make(map[string]*tmclient.Header), Errs: []error{}}
+	hs := &header{Map: make(map[string]*tmclient.Header), Errs: []error{}}
 	var wg sync.WaitGroup
 	for _, chain := range chains {
 		wg.Add(1)
-		go func(hs *Headers, wg *sync.WaitGroup, chain *Chain) {
+		go func(hs *header, wg *sync.WaitGroup, chain *Chain) {
 			header, err := chain.GetLatestLiteHeader()
 			hs.Map[chain.ChainID] = header
 			if err != nil {
@@ -231,7 +231,7 @@ func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
 		}(hs, &wg, chain)
 	}
 	wg.Wait()
-	return headers, errs
+	return hs.Map, hs.err()
 }
 
 // VerifyProof performs response proof verification.
@@ -269,28 +269,26 @@ func (c *Chain) GetLatestLiteHeight() (int64, error) {
 	return store.LastSignedHeaderHeight()
 }
 
-type Heights struct {
-	sync.Mutex
-	Map map[string]int64
-}
-
-func GetLatestHeights(chains ...*Chain) (Heights, []error) {
-	heights := Heights{Map: make(map[string]int64)}
-	errs := []error{}
+func GetLatestHeights(chains ...*Chain) (map[string]int64, error) {
+	hs := &heights{Map: make(map[string]int64), Errs: []error{}}
 	var wg sync.WaitGroup
 	for _, chain := range chains {
 		wg.Add(1)
-		go func(heights *Heights, wg *sync.WaitGroup, chain *Chain) {
+		go func(hs *heights, wg *sync.WaitGroup, chain *Chain) {
 			height, err := chain.GetLatestLiteHeight()
-			heights.Map[chain.ChainID] = height
 			if err != nil {
-				errs = append(errs, err)
+				hs.Lock()
+				hs.Errs = append(hs.Errs, err)
+				hs.Unlock()
 			}
+			hs.Lock()
+			hs.Map[chain.ChainID] = height
+			hs.Unlock()
 			wg.Done()
-		}(&heights, &wg, chain)
+		}(hs, &wg, chain)
 	}
 	wg.Wait()
-	return heights, errs
+	return hs.out(), hs.err()
 }
 
 // GetLiteSignedHeaderAtHeight returns a signed header at a particular height
