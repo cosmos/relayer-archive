@@ -58,14 +58,16 @@ func (src *Chain) CreateConnectionStep(dst *Chain,
 	srcConnectionID, dstConnectionID string) (*RelayMsgs, error) {
 	out := &RelayMsgs{}
 
-	errs := UpdateLiteDBsToLatestHeaders(src, dst)
+	err := UpdateLiteDBsToLatestHeaders(src, dst)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	hs, errs := GetLatestHeaders(src, dst)
+
+	hs, err := GetLatestHeaders(src, dst)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	srcEnd, err := src.QueryConnection(srcConnectionID, hs[src.ChainID].Height)
 	if err != nil {
 		return nil, err
