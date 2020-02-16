@@ -92,10 +92,7 @@ type ErrAddressNotSet error
 func (c Chains) GetChain(chainID string) (*Chain, error) {
 	for _, chain := range c {
 		if chainID == chain.ChainID {
-			addr, err := chain.GetAddress()
-			if err != nil {
-				return chain, fmt.Errorf("address failed to set: %w", err)
-			}
+			addr, _ := chain.GetAddress()
 			chain.address = addr
 			return chain, nil
 		}
