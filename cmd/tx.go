@@ -28,7 +28,9 @@ func init() {
 	transactionCmd.AddCommand(createClientCmd())
 	transactionCmd.AddCommand(createClientsCmd())
 	transactionCmd.AddCommand(createConnectionCmd())
+	transactionCmd.AddCommand(createConnectionStepCmd())
 	transactionCmd.AddCommand(createChannelCmd())
+	transactionCmd.AddCommand(createChannelStepCmd())
 	transactionCmd.AddCommand(updateClientCmd())
 	transactionCmd.AddCommand(rawTransactionCmd)
 	rawTransactionCmd.AddCommand(connTry())
@@ -166,7 +168,7 @@ func createClientsCmd() *cobra.Command {
 
 func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connection [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id], [dst-connection-id]",
+		Use:   "connection [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
 		Short: "create a connection between chains, passing in identifiers",
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -191,13 +193,12 @@ func createConnectionCmd() *cobra.Command {
 	return cmd
 }
 
-func createChannelCmd() *cobra.Command {
+func createConnectionStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel [src-chain-id] [dst-chain-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id]",
-		Short: "",
-		Args:  cobra.ExactArgs(8),
+		Use:   "connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
+		Short: "create a connection between chains, passing in identifiers",
+		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			timeout := 5 * time.Second
 			src, dst := args[0], args[1]
 			chains, err := config.c.GetChains(src, dst)
 			if err != nil {
@@ -206,7 +207,52 @@ func createChannelCmd() *cobra.Command {
 
 			// TODO: validate identifiers ICS24
 
-			err = chains[src].CreateChannel(chains[dst], args[2], args[3], args[4], args[5], args[6], args[7], timeout)
+			msgs, err := chains[src].CreateConnectionStep(chains[dst], args[2], args[3], args[4], args[5])
+			if err != nil {
+				return err
+			}
+
+			var res sdk.TxResponse
+			if len(msgs.Src) > 0 {
+				res, err = chains[src].SendMsgs(msgs.Src)
+				if err != nil {
+					return err
+				}
+			} else if len(msgs.Dst) > 0 {
+				res, err = chains[dst].SendMsgs(msgs.Dst)
+				if err != nil {
+					return err
+				}
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(cmd)
+}
+
+func createChannelCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "channel [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
+		Short: "",
+		Args:  cobra.ExactArgs(11),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			timeout := 5 * time.Second
+			src, dst := args[0], args[1]
+			srcClientID, dstClientID := args[2], args[3]
+			srcConnID, dstConnID := args[4], args[5]
+			srcChanID, dstChanID := args[6], args[7]
+			srcPortID, dstPortID := args[8], args[9]
+			ordering := chanState.OrderFromString(args[10])
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			// TODO: validate identifiers ICS24
+
+			err = chains[src].CreateChannel(chains[dst], srcClientID, dstClientID, srcConnID, dstConnID, srcChanID, dstChanID, srcPortID, dstPortID, timeout, ordering)
 			if err != nil {
 				return err
 			}
@@ -216,6 +262,50 @@ func createChannelCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+func createChannelStepCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
+		Short: "create a connection between chains, passing in identifiers",
+		Args:  cobra.ExactArgs(11),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			srcClientID, dstClientID := args[2], args[3]
+			srcConnID, dstConnID := args[4], args[5]
+			srcChanID, dstChanID := args[6], args[7]
+			srcPortID, dstPortID := args[8], args[9]
+			ordering := chanState.OrderFromString(args[10])
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			// TODO: validate identifiers ICS24
+
+			msgs, err := chains[src].CreateChannelStep(chains[dst], srcClientID, dstClientID, srcConnID, dstConnID, srcChanID, dstChanID, srcPortID, dstPortID, ordering)
+			if err != nil {
+				return err
+			}
+
+			var res sdk.TxResponse
+			if len(msgs.Src) > 0 {
+				res, err = chains[src].SendMsgs(msgs.Src)
+				if err != nil {
+					return err
+				}
+			} else if len(msgs.Dst) > 0 {
+				res, err = chains[dst].SendMsgs(msgs.Dst)
+				if err != nil {
+					return err
+				}
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(cmd)
 }
 
 ////////////////////////////////////////
