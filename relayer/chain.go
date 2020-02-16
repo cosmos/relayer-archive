@@ -68,6 +68,8 @@ type Chain struct {
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
 	Cdc     *codec.Codec
+
+	address sdk.AccAddress
 	logger  log.Logger
 }
 
@@ -84,10 +86,17 @@ func (c Chains) Exists(chainID string) bool {
 	return false
 }
 
+type ErrAddressNotSet error
+
 // GetChain returns the configuration for a given chain
 func (c Chains) GetChain(chainID string) (*Chain, error) {
 	for _, chain := range c {
 		if chainID == chain.ChainID {
+			addr, err := chain.GetAddress()
+			if err != nil {
+				return chain, fmt.Errorf("address failed to set: %w", err)
+			}
+			chain.address = addr
 			return chain, nil
 		}
 	}
@@ -143,11 +152,15 @@ func liteDir(home string) string {
 
 // GetAddress returns the sdk.AccAddress associated with the configred key
 func (c *Chain) GetAddress() (sdk.AccAddress, error) {
+	if c.address != nil {
+		return c.address, nil
+	}
 	// Signing key for src chain
 	srcAddr, err := c.Keybase.Get(c.Key)
 	if err != nil {
 		return nil, err
 	}
+	c.address = srcAddr.GetAddress()
 	return srcAddr.GetAddress(), nil
 }
 

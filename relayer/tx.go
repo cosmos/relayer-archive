@@ -9,6 +9,8 @@ import (
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
+	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
 	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 )
@@ -70,16 +72,6 @@ func (src *Chain) CreateConnectionStep(dst *Chain,
 		}
 	}
 
-	srcAddr, err := src.GetAddress()
-	if err != nil {
-		return nil, err
-	}
-
-	dstAddr, err := dst.GetAddress()
-	if err != nil {
-		return nil, err
-	}
-
 	srcEnd, err := src.QueryConnection(srcConnectionID, hs.Map[src.ChainID].Height)
 	if err != nil {
 		return nil, err
@@ -94,54 +86,22 @@ func (src *Chain) CreateConnectionStep(dst *Chain,
 	// Handshake hasn't been started locally, relay `connOpenInit` locally
 	case srcEnd.Connection.State == connState.UNINITIALIZED && dstEnd.Connection.State == connState.UNINITIALIZED:
 		// TODO: need to add a msgUpdateClient here?
-		out.Src = append(out.Src, connTypes.NewMsgConnectionOpenInit(
-			srcConnectionID,
-			srcClientID,
-			dstConnectionID,
-			dstClientID,
-			defaultChainPrefix,
-			srcAddr,
-		))
+		out.Src = append(out.Src, src.ConnInit(srcConnectionID, srcClientID, dstConnectionID, dstClientID))
 
 	// Handshake has started locally (1 step done), relay `connOpenTry` to the remote end
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.UNINITIALIZED:
 		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs.Map[src.ChainID]),
-			connTypes.NewMsgConnectionOpenTry(
-				dstConnectionID,
-				dstClientID,
-				srcConnectionID,
-				srcClientID,
-				defaultChainPrefix,
-				defaultIBCVersions,
-				srcEnd.Proof,
-				srcEnd.Proof,
-				srcEnd.ProofHeight,
-				uint64(hs.Map[dst.ChainID].Height),
-				dstAddr,
-			))
+			dst.ConnTry(dstClientID, srcClientID, dstConnectionID, srcConnectionID, srcEnd, hs.Map[src.ChainID].Height))
 
 	// Handshake has started on the other end (2 steps done), relay `connOpenAck` to the local end
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.TRYOPEN:
 		out.Src = append(out.Src, src.UpdateClient(srcClientID, hs.Map[dst.ChainID]),
-			connTypes.NewMsgConnectionOpenAck(
-				srcConnectionID,
-				dstEnd.Proof,
-				dstEnd.Proof,
-				dstEnd.ProofHeight,
-				uint64(hs.Map[src.ChainID].Height),
-				ibcversion,
-				srcAddr,
-			))
+			src.ConnAck(srcConnectionID, dstEnd, hs.Map[src.ChainID].Height))
 
 	// Handshake has confirmed locally (3 steps done), relay `connOpenConfirm` to the remote end
 	case srcEnd.Connection.State == connState.OPEN && dstEnd.Connection.State == connState.TRYOPEN:
 		out.Dst = append(out.Dst, dst.UpdateClient(dstClientID, hs.Map[src.ChainID]),
-			connTypes.NewMsgConnectionOpenConfirm(
-				dstConnectionID,
-				srcEnd.Proof,
-				srcEnd.ProofHeight,
-				dstAddr,
-			))
+			dst.ConnConfirm(dstConnectionID, srcEnd, hs.Map[dst.ChainID].Height))
 	default:
 		fmt.Printf("srcEnd.Connection %#v\n", srcEnd.Connection)
 		fmt.Printf("dstEnd.Connection %#v\n", dstEnd.Connection)
@@ -225,28 +185,29 @@ func (c *Chain) ConnConfirm(srcConnID string, dstConnState connTypes.ConnectionR
 	return connTypes.NewMsgConnectionOpenAck(srcConnID, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight, uint64(srcHeight), defaultIBCVersion, c.MustGetAddress())
 }
 
-func (src *Chain) ChanInit(dst *Chain) sdk.Msg {
-	return nil
+func (c *Chain) ChanInit(srcConnID, srcChanID, dstChanID, srcPortID, dstPortID string, ordering chanState.Order) sdk.Msg {
+	return chanTypes.NewMsgChannelOpenInit(srcPortID, srcChanID, defaultIBCVersion, ordering, []string{srcConnID}, dstPortID, dstChanID, c.MustGetAddress())
 }
 
-func (src *Chain) ChanTry(dst *Chain) sdk.Msg {
-	return nil
+func (c *Chain) ChanTry(srcChanID, dstChanID, srcPortID, dstPortID string, dstChanState chanTypes.ChannelResponse) sdk.Msg {
+	return chanTypes.NewMsgChannelOpenTry(srcPortID, srcChanID, defaultIBCVersion, dstChanState.Channel.Ordering, dstChanState.Channel.ConnectionHops,
+		dstPortID, dstChanID, defaultIBCVersion, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
 }
 
-func (src *Chain) ChanAck(dst *Chain) sdk.Msg {
-	return nil
+func (c *Chain) ChanAck(srcChanID, srcPortID string, dstChanState chanTypes.ChannelResponse) sdk.Msg {
+	return chanTypes.NewMsgChannelOpenAck(srcPortID, srcChanID, dstChanState.Channel.GetVersion(), dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
 }
 
-func (src *Chain) ChanConfirm(dst *Chain) sdk.Msg {
-	return nil
+func (c *Chain) ChanConfirm(srcChanID, srcPortID string, dstChanState chanTypes.ChannelResponse) sdk.Msg {
+	return chanTypes.NewMsgChannelOpenConfirm(srcPortID, srcChanID, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
 }
 
-func (src *Chain) ChanCloseInit(dst *Chain) sdk.Msg {
-	return nil
+func (c *Chain) ChanCloseInit(srcChanID, srcPortID string) sdk.Msg {
+	return chanTypes.NewMsgChannelCloseInit(srcPortID, srcChanID, c.MustGetAddress())
 }
 
-func (src *Chain) ChanCloseConfirm(dst *Chain) sdk.Msg {
-	return nil
+func (c *Chain) ChanCloseConfirm(srcChanID, srcPortID string, dstChanState chanTypes.ChannelResponse) sdk.Msg {
+	return chanTypes.NewMsgChannelCloseConfirm(srcPortID, srcChanID, dstChanState.Proof, dstChanState.ProofHeight, c.MustGetAddress())
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
