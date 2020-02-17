@@ -90,13 +90,8 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 
 	// ICS3 : Connections
 	// - Determine if any connection handshakes are in progress
-	cp, err := src.GetCounterparty(dst.ChainID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Fetch connections associated with clients on the source chain
-	connections, err := src.QueryConnectionsUsingClient(cp.ClientID, hs[src.ChainID].Height)
+	connections, err := src.QueryConnectionsUsingClient(src.PathEnd.ClientID, hs[src.ChainID].Height)
 	if err != nil {
 		return nil, err
 	}
