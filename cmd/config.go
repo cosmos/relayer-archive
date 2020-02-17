@@ -30,9 +30,9 @@ import (
 
 // Config represents the config file for the relayer
 type Config struct {
-	Global GlobalConfig  `yaml:"global" json:"global"`
-	Chains []ChainConfig `yaml:"chains" json:"chains"`
-	Paths  relayer.Paths `yaml:"paths" json:"paths"`
+	Global GlobalConfig   `yaml:"global" json:"global"`
+	Chains []ChainConfig  `yaml:"chains" json:"chains"`
+	Paths  []relayer.Path `yaml:"paths" json:"paths"`
 
 	c relayer.Chains
 }
@@ -62,7 +62,7 @@ type ChainConfig struct {
 // Called to set the relayer.Chain types on Config
 func setChains(c *Config, home string) error {
 	var out []*relayer.Chain
-	var new = &Config{Global: c.Global, Chains: c.Chains}
+	var new = &Config{Global: c.Global, Chains: c.Chains, Paths: c.Paths}
 	for _, i := range c.Chains {
 		homeDir := path.Join(home, "lite")
 		chain, err := relayer.NewChain(i.Key, i.ChainID, i.RPCAddr,

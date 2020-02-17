@@ -87,6 +87,7 @@ func configCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			fmt.Println(string(out))
 			return nil
 		},
