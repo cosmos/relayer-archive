@@ -12,12 +12,12 @@ func Relay(strategy string, c Chains, paths []Path) error {
 					return err
 				}
 
-				err = src.SetPath(path.Src)
+				err = src.setPath(&path.Src)
 				if err != nil {
 					return err
 				}
 
-				err = dst.SetPath(path.Dst)
+				err = dst.setPath(&path.Dst)
 				if err != nil {
 					return err
 				}

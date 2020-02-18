@@ -61,7 +61,7 @@ type Chain struct {
 	Memo           string        `yaml:"memo,omitempty"`
 	TrustingPeriod time.Duration `yaml:"trusting-period"`
 	HomePath       string
-	PathEnd        PathEnd
+	PathEnd        *PathEnd
 
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
@@ -184,7 +184,7 @@ type PathEnd struct {
 }
 
 func (p PathEnd) String() string {
-	return fmt.Sprintf("%s-%s-%s@%s:%s", p.ClientID, p.ConnectionID, p.ChannelID, p.ChainID, p.PortID)
+	return fmt.Sprintf("client{%s}-conn{%s}-chan{%s}@chain{%s}:port{%s}", p.ClientID, p.ConnectionID, p.ChannelID, p.ChainID, p.PortID)
 }
 
 func (p *PathEnd) Validate() error {
@@ -196,7 +196,53 @@ func (p *PathEnd) Validate() error {
 	return nil
 }
 
-func (c *Chain) SetPath(p PathEnd) error {
+// SetNewPathClient used to set the path for client creation commands
+func (c *Chain) SetNewPathClient(clientID string) error {
+	return c.setPath(&PathEnd{
+		ChainID:  c.ChainID,
+		ClientID: clientID,
+	})
+}
+
+// SetNewPathConnection used to set the path for the connection creation commands
+func (c *Chain) SetNewPathConnection(clientID, connectionID string) error {
+	return c.setPath(&PathEnd{
+		ChainID:      c.ChainID,
+		ClientID:     clientID,
+		ConnectionID: connectionID,
+	})
+}
+
+// SetFullPath sets all of the properties on the path
+func (c *Chain) SetNewFullPath(clientID, connectionID, channelID, portID string) error {
+	return c.setPath(&PathEnd{
+		ChainID:      c.ChainID,
+		ClientID:     clientID,
+		ConnectionID: connectionID,
+		ChannelID:    channelID,
+		PortID:       portID,
+	})
+}
+
+// PathSet check if the chain has a path set
+func (c *Chain) PathSet() bool {
+	if c.PathEnd == nil {
+		return false
+	}
+	return true
+}
+
+// PathsSet checks if the chains have their paths set
+func PathsSet(chains ...*Chain) bool {
+	for _, c := range chains {
+		if !c.PathSet() {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Chain) setPath(p *PathEnd) error {
 	err := p.Validate()
 	if err != nil {
 		return err
