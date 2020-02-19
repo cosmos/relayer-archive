@@ -7,8 +7,9 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/codec"
+	aminocodec "github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	"github.com/cosmos/cosmos-sdk/simapp/codec"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/tendermint/tendermint/libs/log"
 
@@ -21,7 +22,7 @@ import (
 // and blocks running the app if NewChain does this by default.
 func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float64,
 	gasPrices, defaultDenom, memo, homePath string, liteCacheSize int, trustingPeriod,
-	dir string, cdc *codec.Codec) (*Chain, error) {
+	dir string, cdc *codec.Codec, amino *aminocodec.Codec) (*Chain, error) {
 	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath), nil)
 	if err != nil {
 		return &Chain{}, err
@@ -37,6 +38,10 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 		return &Chain{}, err
 	}
 
+	// cdc := codec.MakeCodec(simapp.ModuleBasics)
+
+	// appCodec := codec.NewAppCodec(cdc)
+
 	tp, err := time.ParseDuration(trustingPeriod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse duration (%s) for chain %s", trustingPeriod, chainID)
@@ -45,7 +50,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gp, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, TrustingPeriod: tp, HomePath: homePath}, nil
+		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -66,6 +71,7 @@ type Chain struct {
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
 	Cdc     *codec.Codec
+	Amino   *aminocodec.Codec
 
 	address sdk.AccAddress
 	logger  log.Logger
@@ -102,13 +108,13 @@ func (c Chains) GetChains(chainIDs ...string) (map[string]*Chain, error) {
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
 func (c *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 	// Fetch account and sequence numbers for the account
-	acc, err := auth.NewAccountRetriever(c).GetAccount(c.MustGetAddress())
+	acc, err := auth.NewAccountRetriever(c.Cdc, c).GetAccount(c.MustGetAddress())
 	if err != nil {
 		return nil, err
 	}
 
 	return auth.NewTxBuilder(
-		auth.DefaultTxEncoder(c.Cdc), acc.GetAccountNumber(),
+		auth.DefaultTxEncoder(c.Amino), acc.GetAccountNumber(),
 		acc.GetSequence(), c.Gas, c.GasAdjustment, false, c.ChainID,
 		c.Memo, sdk.NewCoins(), c.GasPrices).WithKeybase(c.Keybase).
 		BuildAndSign(c.Key, ckeys.DefaultKeyPass, datagram)

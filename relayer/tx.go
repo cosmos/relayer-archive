@@ -6,19 +6,19 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
-	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
 )
 
 var (
-	defaultChainPrefix = commitment.NewPrefix([]byte("ibc"))
-	defaultIBCVersion  = "1.0.0"
-	defaultIBCVersions = []string{defaultIBCVersion}
+	defaultChainPrefix   = commitment.NewPrefix([]byte("ibc"))
+	defaultIBCVersion    = "1.0.0"
+	defaultIBCVersions   = []string{defaultIBCVersion}
+	defaultUnbondingTime = time.Hour * 504 // 3 weeks in hours
 )
 
 // CreateConnection creates a connection between two chains given src and dst client IDs
@@ -230,13 +230,14 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 }
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
-func (c *Chain) UpdateClient(dstHeader *tmclient.Header) clientTypes.MsgUpdateClient {
-	return clientTypes.NewMsgUpdateClient(c.PathEnd.ClientID, dstHeader, c.MustGetAddress())
+func (c *Chain) UpdateClient(dstHeader *tmclient.Header) clientExported.MsgUpdateClient {
+	return tmclient.NewMsgUpdateClient(c.PathEnd.ClientID, *dstHeader, c.MustGetAddress())
 }
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (c *Chain) CreateClient(dstHeader *tmclient.Header) clientTypes.MsgCreateClient {
-	return clientTypes.NewMsgCreateClient(c.PathEnd.ClientID, clientExported.ClientTypeTendermint, dstHeader.ConsensusState(), c.MustGetAddress())
+func (c *Chain) CreateClient(dstHeader *tmclient.Header) clientExported.MsgCreateClient {
+	// TODO: figure out how to dynmaically set unbonding time
+	return tmclient.NewMsgCreateClient(c.PathEnd.ClientID, c.PathEnd.ChainID, dstHeader.ConsensusState(), c.TrustingPeriod, defaultUnbondingTime, c.MustGetAddress())
 }
 
 // ConnInit creates a MsgConnectionOpenInit

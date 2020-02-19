@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 )
 
 func init() {
@@ -47,7 +47,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			acc, err := auth.NewAccountRetriever(chain).GetAccount(addr)
+			acc, err := auth.NewAccountRetriever(chain.Cdc, chain).GetAccount(addr)
 			if err != nil {
 				return err
 			}
