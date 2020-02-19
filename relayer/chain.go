@@ -74,16 +74,6 @@ type Chain struct {
 // Chains is a collection of Chain
 type Chains []*Chain
 
-// Exists Returns true if the chain is configured
-func (c Chains) Exists(chainID string) bool {
-	for _, chain := range c {
-		if chainID == chain.ChainID {
-			return true
-		}
-	}
-	return false
-}
-
 // GetChain returns the configuration for a given chain
 func (c Chains) GetChain(chainID string) (*Chain, error) {
 	for _, chain := range c {
@@ -109,6 +99,7 @@ func (c Chains) GetChains(chainIDs ...string) (map[string]*Chain, error) {
 	return out, nil
 }
 
+// BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
 func (c *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 	// Fetch account and sequence numbers for the account
 	acc, err := auth.NewAccountRetriever(c).GetAccount(c.MustGetAddress())
