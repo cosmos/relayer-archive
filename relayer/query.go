@@ -64,9 +64,8 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 // QueryClientConsensusState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientConsensusState(height uint64) (clientTypes.ConsensusStateResponse, error) {
 	var conStateRes clientTypes.ConsensusStateResponse
-
-	if !c.PathSet() {
-		return conStateRes, ErrPathNotSet
+	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
+		return conStateRes, c.ErrPathNotSet(CLNTPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -92,9 +91,8 @@ func (c *Chain) QueryClientConsensusState(height uint64) (clientTypes.ConsensusS
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 	var conStateRes clientTypes.StateResponse
-
-	if !c.PathSet() {
-		return conStateRes, ErrPathNotSet
+	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
+		return conStateRes, c.ErrPathNotSet(CLNTPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -140,8 +138,8 @@ func (c *Chain) QueryClients(page, limit int) ([]clientExported.ClientState, err
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes.ClientConnectionsResponse, err error) {
-	if !c.PathSet() {
-		return clientConns, ErrPathNotSet
+	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
+		return clientConns, c.ErrPathNotSet(CLNTPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -166,8 +164,8 @@ func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes
 
 // QueryConnection returns the remote end of a given connection
 func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, error) {
-	if !c.PathSet() {
-		return connTypes.ConnectionResponse{}, ErrPathNotSet
+	if err := c.PathEnd.Validate(CONNPATH); !c.PathSet() && err != nil {
+		return connTypes.ConnectionResponse{}, c.ErrPathNotSet(CONNPATH, err)
 	}
 
 	req := abci.RequestQuery{
@@ -199,8 +197,8 @@ func (c *Chain) QueryChannelsUsingConnections(connections []string) ([]chanTypes
 
 // QueryChannel returns the channel associated with a channelID
 func (c *Chain) QueryChannel(height int64) (chanTypes.ChannelResponse, error) {
-	if !c.PathSet() {
-		return chanTypes.ChannelResponse{}, ErrPathNotSet
+	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
+		return chanTypes.ChannelResponse{}, c.ErrPathNotSet(CHANPATH, err)
 	}
 
 	req := abci.RequestQuery{
