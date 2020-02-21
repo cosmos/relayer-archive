@@ -91,7 +91,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.UNINITIALIZED:
 		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
-			dst.ConnTry(dst, srcEnd, hs[src.ChainID].Height))
+			dst.ConnTry(src, srcEnd, hs[src.ChainID].Height))
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
 	case srcEnd.Connection.State == connState.TRYOPEN && dstEnd.Connection.State == connState.INIT:
