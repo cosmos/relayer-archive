@@ -333,7 +333,12 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 		return nil, err
 	}
 
-	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
+	header := tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}
+	if err = header.ValidateBasic(c.ChainID); err != nil {
+		panic(fmt.Sprintf("header failed ValidateBasic: %s", err))
+	}
+
+	return &header, nil
 }
 
 var ErrLiteNotInitialized = errors.New("lite client is not initialized")
