@@ -4,6 +4,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
@@ -78,6 +79,14 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
+	var csSrc, csDst clientTypes.StateResponse
+	if csSrc, err = src.QueryClientState(); err != nil {
+		return nil, err
+	}
+	if csDst, err = dst.QueryClientState(); err != nil {
+		return nil, err
+	}
+
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
 	case srcEnd.Connection.State == connState.UNINITIALIZED && dstEnd.Connection.State == connState.UNINITIALIZED:
@@ -86,12 +95,12 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
 	case srcEnd.Connection.State == connState.UNINITIALIZED && dstEnd.Connection.State == connState.INIT:
 		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
-			src.ConnTry(dst, dstEnd, hs[dst.ChainID].Height))
+			src.ConnTry(dst, dstEnd, int64(csDst.ClientState.GetLatestHeight())))
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.UNINITIALIZED:
 		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
-			dst.ConnTry(src, srcEnd, hs[src.ChainID].Height))
+			dst.ConnTry(src, srcEnd, int64(csSrc.ClientState.GetLatestHeight())))
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
 	case srcEnd.Connection.State == connState.TRYOPEN && dstEnd.Connection.State == connState.INIT:
