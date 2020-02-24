@@ -40,7 +40,7 @@ func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 	return c.GetLatestLiteHeader()
 }
 
-// Updates with headers calls UpdateLiteDBsToLatestHeaders then GetLatestHeaders
+// UpdatesWithHeaders calls UpdateLiteDBsToLatestHeaders then GetLatestHeaders
 func UpdatesWithHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
 	err := UpdateLiteDBsToLatestHeaders(chains...)
 	if err != nil {
@@ -79,6 +79,7 @@ type safeChainErrors struct {
 	Map map[*Chain]error
 }
 
+// UpdateLiteDBsToLatestHeaders updates the databases to the latest headers
 func UpdateLiteDBsToLatestHeaders(chains ...*Chain) error {
 	errs := safeChainErrors{Map: make(map[*Chain]error)}
 	var wg sync.WaitGroup
@@ -101,7 +102,7 @@ func UpdateLiteDBsToLatestHeaders(chains ...*Chain) error {
 	var out error
 	for c, err := range errs.Map {
 		if err != nil {
-			out = fmt.Errorf("%s err: %w\n", c.ChainID, err)
+			out = fmt.Errorf("%s err: %w", c.ChainID, err)
 		}
 	}
 	return out
@@ -228,7 +229,7 @@ type header struct {
 func (h *header) err() error {
 	var out error
 	for _, err := range h.Errs {
-		out = fmt.Errorf("err: %w\n", err)
+		out = fmt.Errorf("err: %w", err)
 	}
 	return out
 }
@@ -283,10 +284,15 @@ func (c *Chain) GetLatestLiteHeight() (int64, error) {
 	}
 	defer df()
 
-	store := dbs.New(db, "")
-	return store.LastSignedHeaderHeight()
+	client, err := c.InitLiteClientWithoutTrust(db)
+	if err != nil {
+		return -1, err
+	}
+
+	return client.LastTrustedHeight()
 }
 
+// GetLatestHeights returns the latest heights from the database
 func GetLatestHeights(chains ...*Chain) (map[string]int64, error) {
 	hs := &heights{Map: make(map[string]int64), Errs: []error{}}
 	var wg sync.WaitGroup
@@ -330,10 +336,8 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 	}
 
 	// TODO Double-check these heights
-	fmt.Println("height:", height)
 	vs, err := client.TrustedValidatorSet(height, time.Now())
 	if err != nil {
-		fmt.Println("ehllo?")
 		return nil, err
 	}
 	nvs, err := client.TrustedValidatorSet(height+1, time.Now())
@@ -349,4 +353,5 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 	return &header, nil
 }
 
+// ErrLiteNotInitialized returns the cannonical error for a an uninitialized lite client
 var ErrLiteNotInitialized = errors.New("lite client is not initialized")
