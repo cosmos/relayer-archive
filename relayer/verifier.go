@@ -327,18 +327,34 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 		return nil, err
 	}
 
+	// HACK: For now, just set valset to the same value in both instances
+	// this is definitely wrong but should work for demo purposes
 	// Fetch the validator set from the store
 	// TODO Double-check these heights
 	// TODO Figure out if we can use the light client API more directly here instead of the store
-	vs, err := store.ValidatorSet(height)
+	fmt.Println("height:", height)
+	vs, err := store.ValidatorSet(height + 1)
 	if err != nil {
+		fmt.Println("ehllo?")
 		return nil, err
 	}
-
 	nvs, err := store.ValidatorSet(height + 1)
 	if err != nil {
 		return nil, err
 	}
+
+	// // Fetch the validator set from the store
+	// // TODO Double-check these heights
+	// // TODO Figure out if we can use the light client API more directly here instead of the store
+	// vs, err := store.ValidatorSet(height)
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// nvs, err := store.ValidatorSet(height + 1)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	header := tmclient.Header{SignedHeader: *sh, ValidatorSet: vs, NextValidatorSet: nvs}
 	if err = header.ValidateBasic(c.ChainID); err != nil {

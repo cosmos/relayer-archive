@@ -34,14 +34,14 @@ cp $RELAYER_DIR/two-chains.yaml $RLY_CONF/config/config.yaml
 if [ "$(uname)" = "Linux" ]; then
   sed -i 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
   sed -i 's/"leveldb"/"goleveldb"/g' ibc1/n0/gaiad/config/config.toml
-  sed -i 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' ibc1/n0/gaiad/config/config.toml
+  sed -i 's#"tcp://0.0.0.0:46656"#"tcp://0.0.0.0:46556"#g' ibc1/n0/gaiad/config/config.toml
   sed -i 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' ibc1/n0/gaiad/config/config.toml
   sed -i 's#"localhost:6060"#"localhost:6061"#g' ibc1/n0/gaiad/config/config.toml
   sed -i 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' ibc1/n0/gaiad/config/config.toml
 else
   sed -i '' 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
   sed -i '' 's/"leveldb"/"goleveldb"/g' ibc1/n0/gaiad/config/config.toml
-  sed -i '' 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' ibc1/n0/gaiad/config/config.toml
+  sed -i '' 's#"tcp://0.0.0.0:46656"#"tcp://0.0.0.0:46556"#g' ibc1/n0/gaiad/config/config.toml
   sed -i '' 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' ibc1/n0/gaiad/config/config.toml
   sed -i '' 's#"localhost:6060"#"localhost:6061"#g' ibc1/n0/gaiad/config/config.toml
   sed -i '' 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' ibc1/n0/gaiad/config/config.toml
@@ -55,8 +55,8 @@ gaiacli config --home ibc0/n0/gaiacli/ node http://localhost:26657 &> /dev/null
 gaiacli config --home ibc1/n0/gaiacli/ node http://localhost:26557 &> /dev/null
 
 echo "Starting Gaiad instances..."
-gaiad --home ibc0/n0/gaiad start > ibc0.log 2>&1 &
-gaiad --home ibc1/n0/gaiad start > ibc1.log 2>&1 & 
+gaiad --home ibc0/n0/gaiad start --pruning=nothing > ibc0.log 2>&1 &
+gaiad --home ibc1/n0/gaiad start --pruning=nothing > ibc1.log 2>&1 & 
 
 echo "Set the following env to make working with the running chains easier:"
 echo 

@@ -33,6 +33,7 @@ func init() {
 	transactionCmd.AddCommand(createChannelStepCmd())
 	transactionCmd.AddCommand(updateClientCmd())
 	transactionCmd.AddCommand(rawTransactionCmd)
+	rawTransactionCmd.AddCommand(connInit())
 	rawTransactionCmd.AddCommand(connTry())
 	rawTransactionCmd.AddCommand(connAck())
 	rawTransactionCmd.AddCommand(connConfirm())
