@@ -311,6 +311,7 @@ func GetLatestHeights(chains ...*Chain) (map[string]int64, error) {
 
 // GetLiteSignedHeaderAtHeight returns a signed header at a particular height
 func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
+
 	// create database connection
 	db, df, err := c.NewLiteDB()
 	if err != nil {
@@ -318,43 +319,27 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 	}
 	defer df()
 
-	// QUESTION: Why do we need this store abstration here and not in other lite functions?
-	store := dbs.New(db, "")
-
-	// Fetch the signed header from the store
-	sh, err := store.SignedHeader(height)
+	client, err := c.InitLiteClientWithoutTrust(db)
 	if err != nil {
 		return nil, err
 	}
 
-	// HACK: For now, just set valset to the same value in both instances
-	// this is definitely wrong but should work for demo purposes
-	// Fetch the validator set from the store
+	sh, err := client.TrustedHeader(height, time.Now())
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO Double-check these heights
-	// TODO Figure out if we can use the light client API more directly here instead of the store
 	fmt.Println("height:", height)
-	vs, err := store.ValidatorSet(height + 1)
+	vs, err := client.TrustedValidatorSet(height, time.Now())
 	if err != nil {
 		fmt.Println("ehllo?")
 		return nil, err
 	}
-	nvs, err := store.ValidatorSet(height + 1)
+	nvs, err := client.TrustedValidatorSet(height+1, time.Now())
 	if err != nil {
 		return nil, err
 	}
-
-	// // Fetch the validator set from the store
-	// // TODO Double-check these heights
-	// // TODO Figure out if we can use the light client API more directly here instead of the store
-	// vs, err := store.ValidatorSet(height)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// nvs, err := store.ValidatorSet(height + 1)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	header := tmclient.Header{SignedHeader: *sh, ValidatorSet: vs, NextValidatorSet: nvs}
 	if err = header.ValidateBasic(c.ChainID); err != nil {
