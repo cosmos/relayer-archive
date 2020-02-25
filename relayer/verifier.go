@@ -336,10 +336,15 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 	}
 
 	// TODO Double-check these heights
+	// NOTE: TrustedValSet takes the height and subtracts 1 so this _should_
+	// return the valset from height - 1
 	vs, err := client.TrustedValidatorSet(height, time.Now())
 	if err != nil {
 		return nil, err
 	}
+
+	// NOTE: TrustedValSet takes the height and subtracts 1 so this _should_
+	// return the valset from height
 	nvs, err := client.TrustedValidatorSet(height+1, time.Now())
 	if err != nil {
 		return nil, err
