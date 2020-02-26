@@ -207,41 +207,30 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 	return c.GetLiteSignedHeaderAtHeight(height)
 }
 
-// Headers is the return type for multiple signed headers coming back from the database
-type header struct {
-	sync.Mutex
-	Map  map[string]*tmclient.Header
-	Errs []error
-}
-
-func (h *header) err() error {
-	var out error
-	for _, err := range h.Errs {
-		out = fmt.Errorf("err: %w", err)
-	}
-	return out
-}
-
-// GetLatestHeaders returns
+// GetLatestHeaders gets latest trusted headers for the given chains from the
+// light clients. It returns a map chainID => Header.
 func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	hs := &header{Map: make(map[string]*tmclient.Header), Errs: []error{}}
-	var wg sync.WaitGroup
+	var (
+		m = make(map[string]*tmclient.Header, len(chains))
+		g errgroup.Group
+	)
 
 	for _, chain := range chains {
-		wg.Add(1)
-		go func(hs *header, wg *sync.WaitGroup, chain *Chain) {
-			defer wg.Done()
-
-			header, err := chain.GetLatestLiteHeader()
-			hs.Map[chain.ChainID] = header
+		chain := chain
+		g.Go(func() error {
+			h, err := chain.GetLatestLiteHeader()
 			if err != nil {
-				hs.Errs = append(hs.Errs, err)
+				return fmt.Errorf("failed to get latest header for chain %s: %w", chain, err)
 			}
-		}(hs, &wg, chain)
+			m[chain.ChainID] = h
+			return nil
+		})
 	}
 
-	wg.Wait()
-	return hs.Map, hs.err()
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // VerifyProof performs response proof verification.
