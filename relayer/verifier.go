@@ -10,6 +10,9 @@ import (
 	"time"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	dbm "github.com/tendermint/tm-db"
+	"golang.org/x/sync/errgroup"
+
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"
@@ -17,10 +20,10 @@ import (
 	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	dbm "github.com/tendermint/tm-db"
 )
 
-// StartUpdatingLiteClient begins a loop that periodically updates the lite database
+// StartUpdatingLiteClient begins a loop that periodically updates the lite
+// database.
 func (c *Chain) StartUpdatingLiteClient(period time.Duration) {
 	ticker := time.NewTicker(period)
 	for ; true; <-ticker.C {
@@ -31,7 +34,8 @@ func (c *Chain) StartUpdatingLiteClient(period time.Duration) {
 	}
 }
 
-// UpdateLiteWithHeader calls UpdateLiteDbToLatestHeader and then GetLatestLiteHeader
+// UpdateLiteWithHeader calls UpdateLiteDbToLatestHeader and then
+// GetLatestLiteHeader.
 func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 	err := c.UpdateLiteDBToLatestHeader()
 	if err != nil {
@@ -40,16 +44,16 @@ func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 	return c.GetLatestLiteHeader()
 }
 
-// UpdatesWithHeaders calls UpdateLiteDBsToLatestHeaders then GetLatestHeaders
+// UpdatesWithHeaders calls UpdateLiteDBsToLatestHeaders then GetLatestHeaders.
 func UpdatesWithHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	err := UpdateLiteDBsToLatestHeaders(chains...)
-	if err != nil {
+	if err := UpdateLiteDBsToLatestHeaders(chains...); err != nil {
 		return nil, err
 	}
 	return GetLatestHeaders(chains...)
 }
 
-// UpdateLiteDBToLatestHeader spins up an instance of the lite client as part of the chain.
+// UpdateLiteDBToLatestHeader spins up an instance of the lite client as part
+// of the chain.
 func (c *Chain) UpdateLiteDBToLatestHeader() error {
 	// create database connection
 	db, df, err := c.NewLiteDB()
@@ -74,41 +78,25 @@ func (c *Chain) UpdateLiteDBToLatestHeader() error {
 
 }
 
-type safeChainErrors struct {
-	sync.Mutex
-	Map map[*Chain]error
-}
-
-// UpdateLiteDBsToLatestHeaders updates the databases to the latest headers
+// UpdateLiteDBsToLatestHeaders updates the light clients of the given chains
+// to the latest state.
 func UpdateLiteDBsToLatestHeaders(chains ...*Chain) error {
-	errs := safeChainErrors{Map: make(map[*Chain]error)}
-	var wg sync.WaitGroup
+	var g errgroup.Group
+
 	for _, chain := range chains {
-		wg.Add(1)
-		go func(errs *safeChainErrors, wg *sync.WaitGroup, chain *Chain) {
-			defer wg.Done()
-			err := chain.UpdateLiteDBToLatestHeader()
-			if err != nil {
-				errs.Lock()
-				errs.Map[chain] = err
-				errs.Unlock()
+		chain := chain
+		g.Go(func() error {
+			if err := chain.UpdateLiteDBToLatestHeader(); err != nil {
+				return fmt.Errorf("failed to update chain %s: %w", chain, err)
 			}
-			errs.Lock()
-			errs.Map[chain] = nil
-			errs.Unlock()
-		}(&errs, &wg, chain)
+			return nil
+		})
 	}
-	wg.Wait()
-	var out error
-	for c, err := range errs.Map {
-		if err != nil {
-			out = fmt.Errorf("%s err: %w", c.ChainID, err)
-		}
-	}
-	return out
+
+	return g.Wait()
 }
 
-// InitLiteClientWithoutTrust reads the trusted period off of the chain
+// InitLiteClientWithoutTrust reads the trusted period off of the chain.
 func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) {
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
@@ -131,7 +119,7 @@ func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, err
 	return lc, nil
 }
 
-// InitLiteClient initializes the lite client for a given chain
+// InitLiteClient initializes the lite client for a given chain.
 func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (*lite.Client, error) {
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
@@ -238,17 +226,20 @@ func (h *header) err() error {
 func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
 	hs := &header{Map: make(map[string]*tmclient.Header), Errs: []error{}}
 	var wg sync.WaitGroup
+
 	for _, chain := range chains {
 		wg.Add(1)
 		go func(hs *header, wg *sync.WaitGroup, chain *Chain) {
+			defer wg.Done()
+
 			header, err := chain.GetLatestLiteHeader()
 			hs.Map[chain.ChainID] = header
 			if err != nil {
 				hs.Errs = append(hs.Errs, err)
 			}
-			wg.Done()
 		}(hs, &wg, chain)
 	}
+
 	wg.Wait()
 	return hs.Map, hs.err()
 }

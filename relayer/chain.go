@@ -156,3 +156,7 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 	}
 	return srcAddr.GetAddress()
 }
+
+func (c *Chain) String() string {
+	return c.ChainID
+}
