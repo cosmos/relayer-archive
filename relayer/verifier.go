@@ -211,10 +211,9 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 // light clients. It returns a map chainID => Header.
 func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
 	var (
-		m = make(map[string]*tmclient.Header, len(chains))
-		g errgroup.Group
+		g       errgroup.Group
+		headers = make(chan *tmclient.Header, len(chains))
 	)
-
 	for _, chain := range chains {
 		chain := chain
 		g.Go(func() error {
@@ -222,7 +221,7 @@ func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
 			if err != nil {
 				return fmt.Errorf("failed to get latest header for chain %s: %w", chain, err)
 			}
-			m[chain.ChainID] = h
+			headers <- h
 			return nil
 		})
 	}
@@ -230,6 +229,13 @@ func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
 	if err := g.Wait(); err != nil {
 		return nil, err
 	}
+
+	m := make(map[string]*tmclient.Header, len(chains))
+	for h := range headers {
+		m[h.ChainID] = h
+	}
+	close(headers)
+
 	return m, nil
 }
 
@@ -295,9 +301,8 @@ func GetLatestHeights(chains ...*Chain) (map[string]int64, error) {
 	return hs.out(), hs.err()
 }
 
-// GetLiteSignedHeaderAtHeight returns a signed header at a particular height
+// GetLiteSignedHeaderAtHeight returns a signed header at a particular height.
 func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
-
 	// create database connection
 	db, df, err := c.NewLiteDB()
 	if err != nil {
@@ -315,9 +320,6 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 		return nil, err
 	}
 
-	// TODO Double-check these heights
-	// NOTE: TrustedValSet takes the height and subtracts 1 so this _should_
-	// return the valset from height - 1
 	vs, err := client.TrustedValidatorSet(height, time.Now())
 	if err != nil {
 		return nil, err
