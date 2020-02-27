@@ -210,10 +210,11 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 // GetLatestHeaders gets latest trusted headers for the given chains from the
 // light clients. It returns a map chainID => Header.
 func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	var (
-		g       errgroup.Group
-		headers = make(chan *tmclient.Header, len(chains))
-	)
+	var g errgroup.Group
+
+	headers := make(chan *tmclient.Header, len(chains))
+	defer close(headers)
+
 	for _, chain := range chains {
 		chain := chain
 		g.Go(func() error {
@@ -234,7 +235,6 @@ func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
 	for h := range headers {
 		m[h.ChainID] = h
 	}
-	close(headers)
 
 	return m, nil
 }
