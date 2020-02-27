@@ -68,13 +68,8 @@ func (c *Chain) UpdateLiteDBToLatestHeader() error {
 		return err
 	}
 
-	now := time.Now()
-
-	// remove expired headers
-	lc.RemoveNoLongerTrustedHeaders(now)
-
 	// sync lite client to the most recent header of the primary provider
-	return lc.Update(now)
+	return lc.Update(time.Now())
 
 }
 
@@ -197,14 +192,7 @@ func (c *Chain) TrustOptions(height int64, hash []byte) lite.TrustOptions {
 
 // GetLatestLiteHeader returns the header to be used for client creation
 func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
-	height, err := c.GetLatestLiteHeight()
-	if err != nil {
-		return nil, err
-	}
-	if height == -1 {
-		return nil, ErrLiteNotInitialized
-	}
-	return c.GetLiteSignedHeaderAtHeight(height)
+	return c.GetLiteSignedHeaderAtHeight(0)
 }
 
 // GetLatestHeaders gets latest trusted headers for the given chains from the
@@ -315,29 +303,17 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 		return nil, err
 	}
 
-	sh, err := client.TrustedHeader(height, time.Now())
+	sh, err := client.TrustedHeader(height)
 	if err != nil {
 		return nil, err
 	}
 
-	vs, err := client.TrustedValidatorSet(height, time.Now())
+	vs, _, err := client.TrustedValidatorSet(sh.Height)
 	if err != nil {
 		return nil, err
 	}
 
-	// NOTE: TrustedValSet takes the height and subtracts 1 so this _should_
-	// return the valset from height
-	nvs, err := client.TrustedValidatorSet(height+1, time.Now())
-	if err != nil {
-		return nil, err
-	}
-
-	header := tmclient.Header{SignedHeader: *sh, ValidatorSet: vs, NextValidatorSet: nvs}
-	if err = header.ValidateBasic(c.ChainID); err != nil {
-		panic(fmt.Sprintf("header failed ValidateBasic: %s", err))
-	}
-
-	return &header, nil
+	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
 }
 
 // ErrLiteNotInitialized returns the cannonical error for a an uninitialized lite client
