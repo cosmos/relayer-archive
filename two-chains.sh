@@ -34,14 +34,14 @@ cp $RELAYER_DIR/two-chains.yaml $RLY_CONF/config/config.yaml
 if [ "$(uname)" = "Linux" ]; then
   sed -i 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
   sed -i 's/"leveldb"/"goleveldb"/g' ibc1/n0/gaiad/config/config.toml
-  sed -i 's#"tcp://0.0.0.0:46656"#"tcp://0.0.0.0:46556"#g' ibc1/n0/gaiad/config/config.toml
+  sed -i 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' ibc1/n0/gaiad/config/config.toml
   sed -i 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' ibc1/n0/gaiad/config/config.toml
   sed -i 's#"localhost:6060"#"localhost:6061"#g' ibc1/n0/gaiad/config/config.toml
   sed -i 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' ibc1/n0/gaiad/config/config.toml
 else
   sed -i '' 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
   sed -i '' 's/"leveldb"/"goleveldb"/g' ibc1/n0/gaiad/config/config.toml
-  sed -i '' 's#"tcp://0.0.0.0:46656"#"tcp://0.0.0.0:46556"#g' ibc1/n0/gaiad/config/config.toml
+  sed -i '' 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' ibc1/n0/gaiad/config/config.toml
   sed -i '' 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' ibc1/n0/gaiad/config/config.toml
   sed -i '' 's#"localhost:6060"#"localhost:6061"#g' ibc1/n0/gaiad/config/config.toml
   sed -i '' 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' ibc1/n0/gaiad/config/config.toml

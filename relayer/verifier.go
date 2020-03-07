@@ -10,6 +10,9 @@ import (
 	"time"
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	dbm "github.com/tendermint/tm-db"
+	"golang.org/x/sync/errgroup"
+
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"
@@ -17,10 +20,10 @@ import (
 	litehttp "github.com/tendermint/tendermint/lite2/provider/http"
 	dbs "github.com/tendermint/tendermint/lite2/store/db"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
-	dbm "github.com/tendermint/tm-db"
 )
 
-// StartUpdatingLiteClient begins a loop that periodically updates the lite database
+// StartUpdatingLiteClient begins a loop that periodically updates the lite
+// database.
 func (c *Chain) StartUpdatingLiteClient(period time.Duration) {
 	ticker := time.NewTicker(period)
 	for ; true; <-ticker.C {
@@ -31,7 +34,8 @@ func (c *Chain) StartUpdatingLiteClient(period time.Duration) {
 	}
 }
 
-// UpdateLiteWithHeader calls UpdateLiteDbToLatestHeader and then GetLatestLiteHeader
+// UpdateLiteWithHeader calls UpdateLiteDbToLatestHeader and then
+// GetLatestLiteHeader.
 func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 	err := c.UpdateLiteDBToLatestHeader()
 	if err != nil {
@@ -40,16 +44,16 @@ func (c *Chain) UpdateLiteWithHeader() (*tmclient.Header, error) {
 	return c.GetLatestLiteHeader()
 }
 
-// Updates with headers calls UpdateLiteDBsToLatestHeaders then GetLatestHeaders
+// UpdatesWithHeaders calls UpdateLiteDBsToLatestHeaders then GetLatestHeaders.
 func UpdatesWithHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	err := UpdateLiteDBsToLatestHeaders(chains...)
-	if err != nil {
+	if err := UpdateLiteDBsToLatestHeaders(chains...); err != nil {
 		return nil, err
 	}
 	return GetLatestHeaders(chains...)
 }
 
-// UpdateLiteDBToLatestHeader spins up an instance of the lite client as part of the chain.
+// UpdateLiteDBToLatestHeader spins up an instance of the lite client as part
+// of the chain.
 func (c *Chain) UpdateLiteDBToLatestHeader() error {
 	// create database connection
 	db, df, err := c.NewLiteDB()
@@ -64,50 +68,30 @@ func (c *Chain) UpdateLiteDBToLatestHeader() error {
 		return err
 	}
 
-	now := time.Now()
-
-	// remove expired headers
-	lc.RemoveNoLongerTrustedHeaders(now)
-
 	// sync lite client to the most recent header of the primary provider
-	return lc.Update(now)
+	return lc.Update(time.Now())
 
 }
 
-type safeChainErrors struct {
-	sync.Mutex
-	Map map[*Chain]error
-}
-
+// UpdateLiteDBsToLatestHeaders updates the light clients of the given chains
+// to the latest state.
 func UpdateLiteDBsToLatestHeaders(chains ...*Chain) error {
-	errs := safeChainErrors{Map: make(map[*Chain]error)}
-	var wg sync.WaitGroup
+	var g errgroup.Group
+
 	for _, chain := range chains {
-		wg.Add(1)
-		go func(errs *safeChainErrors, wg *sync.WaitGroup, chain *Chain) {
-			defer wg.Done()
-			err := chain.UpdateLiteDBToLatestHeader()
-			if err != nil {
-				errs.Lock()
-				errs.Map[chain] = err
-				errs.Unlock()
+		chain := chain
+		g.Go(func() error {
+			if err := chain.UpdateLiteDBToLatestHeader(); err != nil {
+				return fmt.Errorf("failed to update chain %s: %w", chain, err)
 			}
-			errs.Lock()
-			errs.Map[chain] = nil
-			errs.Unlock()
-		}(&errs, &wg, chain)
+			return nil
+		})
 	}
-	wg.Wait()
-	var out error
-	for c, err := range errs.Map {
-		if err != nil {
-			out = fmt.Errorf("%s err: %w\n", c.ChainID, err)
-		}
-	}
-	return out
+
+	return g.Wait()
 }
 
-// InitLiteClientWithoutTrust reads the trusted period off of the chain
+// InitLiteClientWithoutTrust reads the trusted period off of the chain.
 func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) {
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
@@ -130,7 +114,7 @@ func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, err
 	return lc, nil
 }
 
-// InitLiteClient initializes the lite client for a given chain
+// InitLiteClient initializes the lite client for a given chain.
 func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (*lite.Client, error) {
 	httpProvider, err := litehttp.New(c.ChainID, c.RPCAddr)
 	if err != nil {
@@ -208,48 +192,39 @@ func (c *Chain) TrustOptions(height int64, hash []byte) lite.TrustOptions {
 
 // GetLatestLiteHeader returns the header to be used for client creation
 func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
-	height, err := c.GetLatestLiteHeight()
-	if err != nil {
+	return c.GetLiteSignedHeaderAtHeight(0)
+}
+
+// GetLatestHeaders gets latest trusted headers for the given chains from the
+// light clients. It returns a map chainID => Header.
+func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
+	var g errgroup.Group
+
+	headers := make(chan *tmclient.Header, len(chains))
+	defer close(headers)
+
+	for _, chain := range chains {
+		chain := chain
+		g.Go(func() error {
+			h, err := chain.GetLatestLiteHeader()
+			if err != nil {
+				return fmt.Errorf("failed to get latest header for chain %s: %w", chain, err)
+			}
+			headers <- h
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
 		return nil, err
 	}
-	if height == -1 {
-		return nil, ErrLiteNotInitialized
-	}
-	return c.GetLiteSignedHeaderAtHeight(height)
-}
 
-// Headers is the return type for multiple signed headers coming back from the database
-type header struct {
-	sync.Mutex
-	Map  map[string]*tmclient.Header
-	Errs []error
-}
-
-func (h *header) err() error {
-	var out error
-	for _, err := range h.Errs {
-		out = fmt.Errorf("err: %w\n", err)
+	m := make(map[string]*tmclient.Header, len(chains))
+	for h := range headers {
+		m[h.ChainID] = h
 	}
-	return out
-}
 
-// GetLatestHeaders returns
-func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	hs := &header{Map: make(map[string]*tmclient.Header), Errs: []error{}}
-	var wg sync.WaitGroup
-	for _, chain := range chains {
-		wg.Add(1)
-		go func(hs *header, wg *sync.WaitGroup, chain *Chain) {
-			header, err := chain.GetLatestLiteHeader()
-			hs.Map[chain.ChainID] = header
-			if err != nil {
-				hs.Errs = append(hs.Errs, err)
-			}
-			wg.Done()
-		}(hs, &wg, chain)
-	}
-	wg.Wait()
-	return hs.Map, hs.err()
+	return m, nil
 }
 
 // VerifyProof performs response proof verification.
@@ -283,10 +258,15 @@ func (c *Chain) GetLatestLiteHeight() (int64, error) {
 	}
 	defer df()
 
-	store := dbs.New(db, "")
-	return store.LastSignedHeaderHeight()
+	client, err := c.InitLiteClientWithoutTrust(db)
+	if err != nil {
+		return -1, err
+	}
+
+	return client.LastTrustedHeight()
 }
 
+// GetLatestHeights returns the latest heights from the database
 func GetLatestHeights(chains ...*Chain) (map[string]int64, error) {
 	hs := &heights{Map: make(map[string]int64), Errs: []error{}}
 	var wg sync.WaitGroup
@@ -309,7 +289,7 @@ func GetLatestHeights(chains ...*Chain) (map[string]int64, error) {
 	return hs.out(), hs.err()
 }
 
-// GetLiteSignedHeaderAtHeight returns a signed header at a particular height
+// GetLiteSignedHeaderAtHeight returns a signed header at a particular height.
 func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, error) {
 	// create database connection
 	db, df, err := c.NewLiteDB()
@@ -318,50 +298,23 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 	}
 	defer df()
 
-	// QUESTION: Why do we need this store abstration here and not in other lite functions?
-	store := dbs.New(db, "")
-
-	// Fetch the signed header from the store
-	sh, err := store.SignedHeader(height)
+	client, err := c.InitLiteClientWithoutTrust(db)
 	if err != nil {
 		return nil, err
 	}
 
-	// HACK: For now, just set valset to the same value in both instances
-	// this is definitely wrong but should work for demo purposes
-	// Fetch the validator set from the store
-	// TODO Double-check these heights
-	// TODO Figure out if we can use the light client API more directly here instead of the store
-	fmt.Println("height:", height)
-	vs, err := store.ValidatorSet(height + 1)
-	if err != nil {
-		fmt.Println("ehllo?")
-		return nil, err
-	}
-	nvs, err := store.ValidatorSet(height + 1)
+	sh, err := client.TrustedHeader(height)
 	if err != nil {
 		return nil, err
 	}
 
-	// // Fetch the validator set from the store
-	// // TODO Double-check these heights
-	// // TODO Figure out if we can use the light client API more directly here instead of the store
-	// vs, err := store.ValidatorSet(height)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// nvs, err := store.ValidatorSet(height + 1)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	header := tmclient.Header{SignedHeader: *sh, ValidatorSet: vs, NextValidatorSet: nvs}
-	if err = header.ValidateBasic(c.ChainID); err != nil {
-		panic(fmt.Sprintf("header failed ValidateBasic: %s", err))
+	vs, _, err := client.TrustedValidatorSet(sh.Height)
+	if err != nil {
+		return nil, err
 	}
 
-	return &header, nil
+	return &tmclient.Header{SignedHeader: *sh, ValidatorSet: vs}, nil
 }
 
+// ErrLiteNotInitialized returns the cannonical error for a an uninitialized lite client
 var ErrLiteNotInitialized = errors.New("lite client is not initialized")
