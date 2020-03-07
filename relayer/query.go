@@ -19,7 +19,7 @@ import (
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
+	commitmenttypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 	ibctypes "github.com/cosmos/cosmos-sdk/x/ibc/types"
 	abci "github.com/tendermint/tendermint/abci/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -54,7 +54,7 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 
 	state := &tmclient.ConsensusState{
 		Timestamp:    commit.Time,
-		Root:         commitment.NewRoot(commit.AppHash),
+		Root:         commitmenttypes.NewMerkleRoot(commit.AppHash),
 		ValidatorSet: tmtypes.NewValidatorSet(validators.Validators),
 	}
 

@@ -8,8 +8,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	aminocodec "github.com/cosmos/cosmos-sdk/codec"
+	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	"github.com/cosmos/cosmos-sdk/simapp/codec"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/tendermint/tendermint/libs/log"
 
@@ -22,7 +22,7 @@ import (
 // and blocks running the app if NewChain does this by default.
 func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float64,
 	gasPrices, defaultDenom, memo, homePath string, liteCacheSize int, trustingPeriod,
-	dir string, cdc *codec.Codec, amino *aminocodec.Codec) (*Chain, error) {
+	dir string, cdc *codecstd.Codec, amino *aminocodec.Codec) (*Chain, error) {
 	keybase, err := keys.NewKeyring(chainID, "test", keysDir(homePath), nil)
 	if err != nil {
 		return &Chain{}, err
@@ -70,7 +70,7 @@ type Chain struct {
 
 	Keybase keys.Keybase
 	Client  *rpcclient.HTTP
-	Cdc     *codec.Codec
+	Cdc     *codecstd.Codec
 	Amino   *aminocodec.Codec
 
 	address sdk.AccAddress

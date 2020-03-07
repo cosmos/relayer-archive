@@ -10,11 +10,11 @@ import (
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	commitment "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment"
+	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 )
 
 var (
-	defaultChainPrefix   = commitment.NewPrefix([]byte("ibc"))
+	defaultChainPrefix   = commitmentypes.NewMerklePrefix([]byte("ibc"))
 	defaultIBCVersion    = "1.0.0"
 	defaultIBCVersions   = []string{defaultIBCVersion}
 	defaultUnbondingTime = time.Hour * 504 // 3 weeks in hours
