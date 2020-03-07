@@ -77,7 +77,12 @@ echo "Initializing lite clients..."
 sleep 8
 relayer --home $RLY_CONF lite init ibc0 -f
 relayer --home $RLY_CONF lite init ibc1 -f
+echo "Creating client ibconeclient for ibc1 on ibc0 and ibconzeroclient for ibc0 on ibc1..."
+sleep 5
+relayer --home $RLY_CONF tx client ibc0 ibc1 ibconeclient
+relayer --home $RLY_CONF tx client ibc1 ibc0 ibczeroclient
 echo
-echo "Example gaiacli commands:"
-echo "  balance ibc0: gaiacli --home \$GAIA/ibc-testnets/ibc0/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc0 testkey)"
-echo "  balance ibc1: gaiacli --home \$GAIA/ibc-testnets/ibc1/n0/gaiacli q account \$(relayer --home \$RLY keys show ibc1 testkey)"
+echo "Updating clients ibconeclient and ibczeroclient..."
+sleep 5
+relayer --home $RLY_CONF tx update-client ibc0 ibc1 ibconeclient
+relayer --home $RLY_CONF tx update-client ibc1 ibc0 ibczeroclient
