@@ -11,7 +11,6 @@ import (
 
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	dbm "github.com/tendermint/tm-db"
-	"golang.org/x/sync/errgroup"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
@@ -73,22 +72,43 @@ func (c *Chain) UpdateLiteDBToLatestHeader() error {
 
 }
 
+type safeChainErrors struct {
+	sync.Mutex
+	Map map[*Chain]error
+}
+
 // UpdateLiteDBsToLatestHeaders updates the light clients of the given chains
 // to the latest state.
 func UpdateLiteDBsToLatestHeaders(chains ...*Chain) error {
-	var g errgroup.Group
+	errs := safeChainErrors{Map: make(map[*Chain]error)}
+	var wg sync.WaitGroup
 
 	for _, chain := range chains {
-		chain := chain
-		g.Go(func() error {
-			if err := chain.UpdateLiteDBToLatestHeader(); err != nil {
-				return fmt.Errorf("failed to update chain %s: %w", chain, err)
+		wg.Add(1)
+		go func(errs *safeChainErrors, wg *sync.WaitGroup, chain *Chain) {
+			defer wg.Done()
+			err := chain.UpdateLiteDBToLatestHeader()
+			if err != nil {
+				errs.Lock()
+				errs.Map[chain] = err
+				errs.Unlock()
 			}
-			return nil
-		})
+			errs.Lock()
+			errs.Map[chain] = nil
+			errs.Unlock()
+		}(&errs, &wg, chain)
 	}
 
-	return g.Wait()
+	wg.Wait()
+
+	var out error
+	for c, err := range errs.Map {
+		if err != nil {
+			out = fmt.Errorf("%s err: %w", c.ChainID, err)
+		}
+	}
+
+	return out
 }
 
 // InitLiteClientWithoutTrust reads the trusted period off of the chain.
@@ -195,36 +215,44 @@ func (c *Chain) GetLatestLiteHeader() (*tmclient.Header, error) {
 	return c.GetLiteSignedHeaderAtHeight(0)
 }
 
+type header struct {
+	sync.Mutex
+	Map  map[string]*tmclient.Header
+	Errs []error
+}
+
+func (h *header) err() error {
+	var out error
+	for _, err := range h.Errs {
+		out = fmt.Errorf("err: %w", err)
+	}
+	return out
+}
+
 // GetLatestHeaders gets latest trusted headers for the given chains from the
 // light clients. It returns a map chainID => Header.
 func GetLatestHeaders(chains ...*Chain) (map[string]*tmclient.Header, error) {
-	var g errgroup.Group
-
-	headers := make(chan *tmclient.Header, len(chains))
-	defer close(headers)
+	hs := &header{Map: make(map[string]*tmclient.Header), Errs: []error{}}
+	var wg sync.WaitGroup
 
 	for _, chain := range chains {
-		chain := chain
-		g.Go(func() error {
-			h, err := chain.GetLatestLiteHeader()
+		wg.Add(1)
+		go func(hs *header, wg *sync.WaitGroup, chain *Chain) {
+			defer wg.Done()
+			header, err := chain.GetLatestLiteHeader()
+			hs.Lock()
+			hs.Map[chain.ChainID] = header
 			if err != nil {
-				return fmt.Errorf("failed to get latest header for chain %s: %w", chain, err)
+				hs.Errs = append(hs.Errs, err)
 			}
-			headers <- h
-			return nil
-		})
+			hs.Unlock()
+
+		}(hs, &wg, chain)
 	}
 
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
+	wg.Wait()
 
-	m := make(map[string]*tmclient.Header, len(chains))
-	for h := range headers {
-		m[h.ChainID] = h
-	}
-
-	return m, nil
+	return hs.Map, hs.err()
 }
 
 // VerifyProof performs response proof verification.
