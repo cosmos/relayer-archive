@@ -231,6 +231,9 @@ func (c *Chain) UpdateClient(dstHeader *tmclient.Header) sdk.Msg {
 
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (c *Chain) CreateClient(dstHeader *tmclient.Header) sdk.Msg {
+	if err := dstHeader.ValidateBasic(dstHeader.ChainID); err != nil {
+		panic(err)
+	}
 	// TODO: figure out how to dynmaically set unbonding time
 	return tmclient.NewMsgCreateClient(c.PathEnd.ClientID, *dstHeader, c.TrustingPeriod, defaultUnbondingTime, c.MustGetAddress())
 }
