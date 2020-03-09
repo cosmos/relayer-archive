@@ -77,15 +77,10 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsg(chains[src].UpdateClient(dstHeader))
-			if err != nil {
-				return err
-			}
-
-			return PrintOutput(res, cmd)
+			return SendAndPrint([]sdk.Msg{chains[src].UpdateClient(dstHeader)}, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func createClientCmd() *cobra.Command {
@@ -110,16 +105,11 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsg(chains[src].CreateClient(dstHeader))
-			if err != nil {
-				return err
-			}
-
-			return PrintOutput(res, cmd)
+			return SendAndPrint([]sdk.Msg{chains[src].CreateClient(dstHeader)}, chains[src], cmd)
 		},
 	}
 
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func createClientsCmd() *cobra.Command {
@@ -147,25 +137,14 @@ func createClientsCmd() *cobra.Command {
 				return chains[dst].ErrCantSetPath(relayer.CLNTPATH, err)
 			}
 
-			res, err := chains[src].SendMsg(chains[src].CreateClient(hs[dst]))
-			if err != nil {
+			if err = SendAndPrint([]sdk.Msg{chains[src].CreateClient(hs[dst])}, chains[src], cmd); err != nil {
 				return err
 			}
 
-			err = PrintOutput(res, cmd)
-			if err != nil {
-				return err
-			}
-
-			res, err = chains[dst].SendMsg(chains[dst].CreateClient(hs[src]))
-			if err != nil {
-				return err
-			}
-
-			return PrintOutput(res, cmd)
+			return SendAndPrint([]sdk.Msg{chains[dst].CreateClient(hs[src])}, chains[dst], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func createConnectionCmd() *cobra.Command {
@@ -232,24 +211,21 @@ func createConnectionStepCmd() *cobra.Command {
 				return err
 			}
 
-			var res sdk.TxResponse
 			if len(msgs.Src) > 0 {
-				res, err = chains[src].SendMsgs(msgs.Src)
-				if err != nil {
+				if err = SendAndPrint(msgs.Src, chains[src], cmd); err != nil {
 					return err
 				}
 			} else if len(msgs.Dst) > 0 {
-				res, err = chains[dst].SendMsgs(msgs.Dst)
-				if err != nil {
+				if err = SendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
 					return err
 				}
 			}
 
-			return PrintOutput(res, cmd)
+			return nil
 		},
 	}
 
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func createChannelCmd() *cobra.Command {
@@ -322,24 +298,21 @@ func createChannelStepCmd() *cobra.Command {
 				return err
 			}
 
-			var res sdk.TxResponse
 			if len(msgs.Src) > 0 {
-				res, err = chains[src].SendMsgs(msgs.Src)
-				if err != nil {
+				if err = SendAndPrint(msgs.Src, chains[src], cmd); err != nil {
 					return err
 				}
 			} else if len(msgs.Dst) > 0 {
-				res, err = chains[dst].SendMsgs(msgs.Dst)
-				if err != nil {
+				if err = SendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
 					return err
 				}
 			}
 
-			return PrintOutput(res, cmd)
+			return nil
 		},
 	}
 
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 ////////////////////////////////////////
@@ -371,15 +344,10 @@ func connInit() *cobra.Command {
 				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
 			}
 
-			res, err := chains[src].SendMsg(chains[src].ConnInit(chains[dst]))
-			if err != nil {
-				return nil
-			}
-
-			return PrintOutput(res, cmd)
+			return SendAndPrint([]sdk.Msg{chains[src].ConnInit(chains[dst])}, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func connTry() *cobra.Command {
@@ -412,16 +380,15 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsgs([]sdk.Msg{chains[src].UpdateClient(hs[dst]), chains[src].ConnTry(chains[dst], dstState, hs[src].Height)})
-
-			if err != nil {
-				return err
+			txs := []sdk.Msg{
+				chains[src].UpdateClient(hs[dst]),
+				chains[src].ConnTry(chains[dst], dstState, hs[src].Height),
 			}
 
-			return PrintOutput(res, cmd)
+			return SendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func connAck() *cobra.Command {
@@ -454,18 +421,15 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsgs([]sdk.Msg{
+			txs := []sdk.Msg{
 				chains[src].ConnAck(dstState, hs[src].Height),
-				chains[src].UpdateClient(hs[dst])})
-
-			if err != nil {
-				return nil
+				chains[src].UpdateClient(hs[dst]),
 			}
 
-			return PrintOutput(res, cmd)
+			return SendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func connConfirm() *cobra.Command {
@@ -498,18 +462,15 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsgs([]sdk.Msg{
+			txs := []sdk.Msg{
 				chains[src].ConnConfirm(dstState, hs[src].Height),
-				chains[src].UpdateClient(hs[dst])})
-
-			if err != nil {
-				return nil
+				chains[src].UpdateClient(hs[dst]),
 			}
 
-			return PrintOutput(res, cmd)
+			return SendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func chanInit() *cobra.Command {
@@ -537,15 +498,10 @@ func chanInit() *cobra.Command {
 				return fmt.Errorf("invalid order '%s' passed in, expected 'UNORDERED' or 'ORDERED'", args[6])
 			}
 
-			res, err := chains[src].SendMsg(chains[src].ChanInit(chains[dst], order))
-			if err != nil {
-				return err
-			}
-
-			return PrintOutput(res, cmd)
+			return SendAndPrint([]sdk.Msg{chains[src].ChanInit(chains[dst], order)}, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func chanTry() *cobra.Command {
@@ -578,15 +534,15 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsgs([]sdk.Msg{chains[src].UpdateClient(dstHeader), chains[src].ChanTry(chains[dst], dstChanState)})
-			if err != nil {
-				return err
+			txs := []sdk.Msg{
+				chains[src].UpdateClient(dstHeader),
+				chains[src].ChanTry(chains[dst], dstChanState),
 			}
 
-			return PrintOutput(res, cmd)
+			return SendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func chanAck() *cobra.Command {
@@ -619,15 +575,15 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			chains[src].SendMsgs([]sdk.Msg{chains[src].UpdateClient(dstHeader), chains[src].ChanAck(dstChanState)})
-			if err != nil {
-				return err
+			txs := []sdk.Msg{
+				chains[src].UpdateClient(dstHeader),
+				chains[src].ChanAck(dstChanState),
 			}
 
-			return PrintOutput(err, cmd)
+			return SendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func chanConfirm() *cobra.Command {
@@ -660,15 +616,15 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsgs([]sdk.Msg{chains[src].UpdateClient(dstHeader), chains[src].ChanConfirm(dstChanState)})
-			if err != nil {
-				return err
+			txs := []sdk.Msg{
+				chains[src].UpdateClient(dstHeader),
+				chains[src].ChanConfirm(dstChanState),
 			}
 
-			return PrintOutput(res, cmd)
+			return SendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func chanCloseInit() *cobra.Command {
@@ -686,15 +642,10 @@ func chanCloseInit() *cobra.Command {
 				return src.ErrCantSetPath(relayer.CHANPATH, err)
 			}
 
-			res, err := src.SendMsg(src.ChanCloseInit())
-			if err != nil {
-				return err
-			}
-
-			return PrintOutput(res, cmd)
+			return SendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src, cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
 
 func chanCloseConfirm() *cobra.Command {
@@ -727,15 +678,13 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			res, err := chains[src].SendMsgs([]sdk.Msg{
+			txs := []sdk.Msg{
 				chains[src].UpdateClient(dstHeader),
-				chains[src].ChanCloseConfirm(dstChanState)})
-			if err != nil {
-				return err
+				chains[src].ChanCloseConfirm(dstChanState),
 			}
 
-			return PrintOutput(res, cmd)
+			return SendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return outputFlags(cmd)
+	return transactionFlags(cmd)
 }
