@@ -74,11 +74,10 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	// NOTE: We query connection at height - 1 because of the way tendermint returns
 	// proofs the commit for height n is contained in the header of height n + 1
 	var srcEnd, dstEnd connTypes.ConnectionResponse
-	if srcEnd, err = src.QueryConnection(hs[src.ChainID].Height); err != nil {
+	if srcEnd, err = src.QueryConnection(hs[src.ChainID].Height - 1); err != nil {
 		return nil, err
 	}
-
-	if dstEnd, err = dst.QueryConnection(hs[src.ChainID].Height); err != nil {
+	if dstEnd, err = dst.QueryConnection(hs[src.ChainID].Height - 1); err != nil {
 		return nil, err
 	}
 
@@ -96,10 +95,10 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Query the stored client consensus states at those heights on both src and dst
 	var srcCons, dstCons clientTypes.ConsensusStateResponse
-	if srcCons, err = src.QueryClientConsensusState(hs[src.ChainID].Height, dstConsH); err != nil {
+	if srcCons, err = src.QueryClientConsensusState(hs[dst.ChainID].Height, srcConsH); err != nil {
 		return nil, err
 	}
-	if dstCons, err = dst.QueryClientConsensusState(hs[dst.ChainID].Height, srcConsH); err != nil {
+	if dstCons, err = dst.QueryClientConsensusState(hs[src.ChainID].Height, dstConsH); err != nil {
 		return nil, err
 	}
 
