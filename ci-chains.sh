@@ -39,8 +39,8 @@ $GAIACLI config --home ibc0/n0/gaiacli/ node http://localhost:26657
 $GAIACLI config --home ibc1/n0/gaiacli/ node http://localhost:26557
 
 echo "Starting Gaiad instances..."
-nohup $GAIAD --home ibc0/n0/gaiad start > ibc0.log &
-nohup $GAIAD --home ibc1/n0/gaiad start > ibc1.log &
+nohup $GAIAD --home ibc0/n0/gaiad start --pruning=nothing > ibc0.log &
+nohup $GAIAD --home ibc1/n0/gaiad start --pruning=nothing > ibc1.log &
 
 echo "Adding gaiacli keys to the relayer"
 $RELAYER --home $RLY_CONF keys restore ibc0 testkey "$(jq -r '.secret' ibc0/n0/gaiacli/key_seed.json)" -a
