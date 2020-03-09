@@ -375,7 +375,7 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			dstState, err := chains[dst].QueryConnection(hs[dst].Height)
+			dstState, err := chains[dst].QueryConnection(hs[dst].Height - 1)
 			if err != nil {
 				return err
 			}
