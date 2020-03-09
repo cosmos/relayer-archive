@@ -68,8 +68,8 @@ func (c *Chain) UpdateLiteDBToLatestHeader() error {
 	}
 
 	// sync lite client to the most recent header of the primary provider
-	return lc.Update(time.Now())
-
+	_, err = lc.Update(time.Now())
+	return err
 }
 
 type safeChainErrors struct {
@@ -126,7 +126,7 @@ func (c *Chain) InitLiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, err
 		return nil, err
 	}
 
-	err = lc.Update(time.Now())
+	_, err = lc.Update(time.Now())
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (
 		return nil, err
 	}
 
-	err = lc.Update(time.Now())
+	_, err = lc.Update(time.Now())
 	if err != nil {
 		return nil, err
 	}

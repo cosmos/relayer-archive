@@ -245,7 +245,7 @@ func (c *Chain) ConnInit(dst *Chain) sdk.Msg {
 
 // ConnTry creates a MsgConnectionOpenTry
 func (c *Chain) ConnTry(dst *Chain, dstConnState connTypes.ConnectionResponse, srcHeight int64) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenTry(c.PathEnd.ConnectionID, c.PathEnd.ClientID, dst.PathEnd.ConnectionID, dst.PathEnd.ClientID, defaultChainPrefix, defaultIBCVersions, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight, uint64(srcHeight), c.MustGetAddress())
+	return connTypes.NewMsgConnectionOpenTry(c.PathEnd.ConnectionID, c.PathEnd.ClientID, dst.PathEnd.ConnectionID, dst.PathEnd.ClientID, defaultChainPrefix, defaultIBCVersions, dstConnState.Proof, dstConnState.Proof, dstConnState.ProofHeight+1, uint64(srcHeight), c.MustGetAddress())
 }
 
 // ConnAck creates a MsgConnectionOpenAck
