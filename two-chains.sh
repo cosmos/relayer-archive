@@ -55,8 +55,8 @@ gaiacli config --home ibc0/n0/gaiacli/ node http://localhost:26657 &> /dev/null
 gaiacli config --home ibc1/n0/gaiacli/ node http://localhost:26557 &> /dev/null
 
 echo "Starting Gaiad instances..."
-gaiad --home ibc0/n0/gaiad start --pruning=nothing > ibc0.log 2>&1 &
-gaiad --home ibc1/n0/gaiad start --pruning=nothing > ibc1.log 2>&1 & 
+gaiad --home ibc0/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc0.log 2>&1 &
+gaiad --home ibc1/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc1.log 2>&1 & 
 
 echo "Set the following env to make working with the running chains easier:"
 echo 

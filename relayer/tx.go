@@ -10,6 +10,7 @@ import (
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 )
 
@@ -313,7 +314,7 @@ func (src *Chain) ChanTry(dst *Chain, dstChanState chanTypes.ChannelResponse) sd
 		dst.PathEnd.ChannelID,
 		defaultIBCVersion,
 		dstChanState.Proof,
-		dstChanState.ProofHeight,
+		dstChanState.ProofHeight+1,
 		src.MustGetAddress(),
 	)
 }
@@ -325,7 +326,7 @@ func (src *Chain) ChanAck(dstChanState chanTypes.ChannelResponse) sdk.Msg {
 		src.PathEnd.ChannelID,
 		dstChanState.Channel.GetVersion(),
 		dstChanState.Proof,
-		dstChanState.ProofHeight,
+		dstChanState.ProofHeight+1,
 		src.MustGetAddress(),
 	)
 }
@@ -336,7 +337,7 @@ func (src *Chain) ChanConfirm(dstChanState chanTypes.ChannelResponse) sdk.Msg {
 		src.PathEnd.PortID,
 		src.PathEnd.ChannelID,
 		dstChanState.Proof,
-		dstChanState.ProofHeight,
+		dstChanState.ProofHeight+1,
 		src.MustGetAddress(),
 	)
 }
@@ -359,6 +360,48 @@ func (src *Chain) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse) sdk.M
 		dstChanState.ProofHeight,
 		src.MustGetAddress(),
 	)
+}
+
+// NewMsgPacket creates a MsgPacket
+func (src *Chain) NewMsgPacket(packet chanTypes.Packet, proof chanTypes.PacketResponse) sdk.Msg {
+	return chanTypes.NewMsgPacket(
+		packet,
+		proof.Proof,
+		proof.ProofHeight+1,
+		src.MustGetAddress(),
+	)
+}
+
+// NewMsgTimeout creates MsgTimeout
+func (src *Chain) NewMsgTimeout(packet chanTypes.Packet, seq uint64, proof chanTypes.PacketResponse) sdk.Msg {
+	return chanTypes.NewMsgTimeout(
+		packet,
+		seq,
+		proof.Proof,
+		proof.ProofHeight+1,
+		src.MustGetAddress(),
+	)
+}
+
+// NewMsgAck creates MsgAck
+func (src *Chain) NewMsgAck(packet chanTypes.Packet, ack xferTypes.AckDataTransfer, proof chanTypes.PacketResponse) sdk.Msg {
+	return chanTypes.NewMsgAcknowledgement(
+		packet,
+		ack,
+		proof.Proof,
+		proof.ProofHeight+1,
+		src.MustGetAddress(),
+	)
+}
+
+// // NewMsgTransfer creates a new transfer message
+// func (src *Chain) NewMsgTransfer(destHeight uint64, amount sdk.Coins, sender, reciever sdk.AccAddress, source bool, timeout uint64, proof chanTypes.PacketResponse) sdk.Msg {
+// 	return src.NewMsgPacket(src.NewTransferPacket(amount, sender, reciever, source, timeout), proof)
+// }
+
+// NewTransferPacket creates a new transfer packet
+func (src *Chain) NewTransferPacket(amount sdk.Coins, sender, reciever sdk.AccAddress, source bool, timeout uint64) chanState.PacketDataI {
+	return xferTypes.NewFungibleTokenPacketData(amount, sender, reciever, source, timeout)
 }
 
 // SendMsg wraps the msg in a stdtx, signs and sends it
