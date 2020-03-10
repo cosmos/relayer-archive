@@ -313,13 +313,10 @@ func (src *Chain) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsStat
 // ConnConfirm creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
 func (src *Chain) ConnConfirm(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenAck(
+	return connTypes.NewMsgConnectionOpenConfirm(
 		src.PathEnd.ConnectionID,
 		dstConnState.Proof,
-		dstConsState.Proof,
 		dstConnState.ProofHeight+1,
-		uint64(dstCsHeight),
-		defaultIBCVersion,
 		src.MustGetAddress(),
 	)
 }
