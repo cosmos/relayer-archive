@@ -116,3 +116,20 @@ sleep 5
 relayer --home $RLY_CONF tx raw chan-ack $c0 $c1 $c0cl $c0chan $c1chan $c0port $c1port
 sleep 5
 relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port
+echo
+echo "Command to test transfer"
+echo "go run main.go --home $RLY_CONF tx raw xfer $c0 $c1 $c0chan $c1chan $c0port $c1port 10stake $(go run main.go --home $RLY_CONF keys show $c1 testkey -a)"
+echo
+echo "IDENTIFIERS FOR IBC PRIMATIVES:"
+echo "chain0 ID: $c0"
+echo "chain1 ID: $c1"
+echo "chain0 ClientID: $c0cl"
+echo "chain1 ClientID: $c1cl"
+echo "chain0 ConnID: $c0conn"
+echo "chain1 ConnID: $c1conn"
+echo "chain0 ChanID: $c0chan"
+echo "chain1 ChanID: $c1chan"
+echo "chain0 PortID: $c0port"
+echo "chain1 PortID: $c1port"
+echo 
+echo "export RLY=$RLY_CONF"
