@@ -20,37 +20,6 @@ var (
 	defaultUnbondingTime = time.Hour * 504 // 3 weeks in hours
 )
 
-// CreateConnection creates a connection between two chains given src and dst client IDs
-func (src *Chain) CreateConnection(dst *Chain, timeout time.Duration) error {
-	ticker := time.NewTicker(timeout)
-	for ; true; <-ticker.C {
-		msgs, err := src.CreateConnectionStep(dst)
-		if err != nil {
-			return err
-		}
-
-		if !msgs.Ready() {
-			break
-		}
-
-		// Submit the transactions to src chain
-		srcRes, err := src.SendMsgs(msgs.Src)
-		if err != nil {
-			return err
-		}
-		src.logger.Info(srcRes.String())
-
-		// Submit the transactions to dst chain
-		dstRes, err := dst.SendMsgs(msgs.Dst)
-		if err != nil {
-			return err
-		}
-		src.logger.Info(dstRes.String())
-	}
-
-	return nil
-}
-
 // CreateConnectionStep returns the next set of messags for creating a channel
 // with the given identifier between chains src and dst. If handshake hasn't started,
 // CreateConnetionStep will start the handshake on src

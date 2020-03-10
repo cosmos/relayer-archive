@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
@@ -151,7 +152,7 @@ func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connection [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
 		Short: "create a connection between chains, passing in identifiers",
-		Long:  "FYI: DRAGONS HERE, not tested",
+		Long:  "Working, but not smoothly",
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
@@ -173,23 +174,46 @@ func createConnectionCmd() *cobra.Command {
 				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
 			}
 
-			err = chains[src].CreateConnection(chains[dst], to)
-			if err != nil {
-				return err
+			ticker := time.NewTicker(to)
+			for ; true; <-ticker.C {
+				msgs, err := chains[src].CreateConnectionStep(chains[dst])
+				if err != nil {
+					return err
+				}
+
+				if !msgs.Ready() {
+					break
+				}
+
+				if len(msgs.Src) > 0 {
+					// Submit the transactions to src chain
+					err = SendAndPrint(msgs.Src, chains[src], cmd)
+					if err != nil {
+						return err
+					}
+				}
+
+				if len(msgs.Dst) > 0 {
+					// Submit the transactions to dst chain
+					err = SendAndPrint(msgs.Dst, chains[dst], cmd)
+					if err != nil {
+						return err
+					}
+				}
 			}
 
 			return nil
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return timeoutFlag(transactionFlags(cmd))
 }
 
 func createConnectionStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
 		Short: "create a connection between chains, passing in identifiers",
-		Long:  "FYI: DRAGONS HERE, not tested",
+		Long:  "This command creates the next handshake message given a specifc set of identifiers. If the command fails, you can safely run it again to repair an unfinished connection",
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]

@@ -104,3 +104,11 @@ sleep 5
 $RELAYER --home $RLY_CONF tx raw conn-ack $c0 $c1 $c0cl $c1cl $c0conn2 $c1conn2
 sleep 5
 $RELAYER --home $RLY_CONF tx raw conn-confirm $c1 $c0 $c1cl $c0cl $c1conn2 $c0conn2
+
+echo "Querying connections"
+$RELAYER --home $RLY_CONF q connection $c0 $c0conn
+$RELAYER --home $RLY_CONF q connection $c0 $c0conn2
+$RELAYER --home $RLY_CONF q connection $c1 $c0conn
+$RELAYER --home $RLY_CONF q connection $c1 $c0conn2
+$RELAYER --home $RLY_CONF q connections $c0 $c0cl
+$RELAYER --home $RLY_CONF q connections $c1 $c1cl

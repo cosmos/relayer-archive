@@ -38,9 +38,9 @@ type RelayMsgs struct {
 // Ready returns true if there are messages to relay
 func (r *RelayMsgs) Ready() bool {
 	if len(r.Src) == 0 && len(r.Dst) == 0 {
-		return true
+		return false
 	}
-	return false
+	return true
 }
 
 // NaiveRelayStrategy returns the RelayMsgs that need to be run to relay between
