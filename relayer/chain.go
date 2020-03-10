@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"time"
 
@@ -38,10 +39,6 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 		return &Chain{}, err
 	}
 
-	// cdc := codec.MakeCodec(simapp.ModuleBasics)
-
-	// appCodec := codec.NewAppCodec(cdc)
-
 	tp, err := time.ParseDuration(trustingPeriod)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse duration (%s) for chain %s", trustingPeriod, chainID)
@@ -50,7 +47,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gp, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath}, nil
+		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath, logger: log.NewTMLogger(os.Stdout)}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites

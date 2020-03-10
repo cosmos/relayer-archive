@@ -20,37 +20,6 @@ var (
 	defaultUnbondingTime = time.Hour * 504 // 3 weeks in hours
 )
 
-// CreateConnection creates a connection between two chains given src and dst client IDs
-func (src *Chain) CreateConnection(dst *Chain, timeout time.Duration) error {
-	ticker := time.NewTicker(timeout)
-	for ; true; <-ticker.C {
-		msgs, err := src.CreateConnectionStep(dst)
-		if err != nil {
-			return err
-		}
-
-		if !msgs.Ready() {
-			break
-		}
-
-		// Submit the transactions to src chain
-		srcRes, err := src.SendMsgs(msgs.Src)
-		if err != nil {
-			return err
-		}
-		src.logger.Info(srcRes.String())
-
-		// Submit the transactions to dst chain
-		dstRes, err := dst.SendMsgs(msgs.Dst)
-		if err != nil {
-			return err
-		}
-		src.logger.Info(dstRes.String())
-	}
-
-	return nil
-}
-
 // CreateConnectionStep returns the next set of messags for creating a channel
 // with the given identifier between chains src and dst. If handshake hasn't started,
 // CreateConnetionStep will start the handshake on src
@@ -95,10 +64,10 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Query the stored client consensus states at those heights on both src and dst
 	var srcCons, dstCons clientTypes.ConsensusStateResponse
-	if srcCons, err = src.QueryClientConsensusState(hs[dst.ChainID].Height, srcConsH); err != nil {
+	if srcCons, err = src.QueryClientConsensusState(hs[src.ChainID].Height-1, srcConsH); err != nil {
 		return nil, err
 	}
-	if dstCons, err = dst.QueryClientConsensusState(hs[src.ChainID].Height, dstConsH); err != nil {
+	if dstCons, err = dst.QueryClientConsensusState(hs[dst.ChainID].Height-1, dstConsH); err != nil {
 		return nil, err
 	}
 
@@ -130,12 +99,12 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
 	case srcEnd.Connection.State == connState.TRYOPEN && dstEnd.Connection.State == connState.OPEN:
 		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
-			src.ConnConfirm(dstEnd, dstCons, dstConsH))
+			src.ConnConfirm(dstEnd))
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
 	case srcEnd.Connection.State == connState.OPEN && dstEnd.Connection.State == connState.TRYOPEN:
 		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
-			dst.ConnConfirm(srcEnd, srcCons, srcConsH))
+			dst.ConnConfirm(srcEnd))
 	}
 
 	return out, nil
@@ -309,14 +278,11 @@ func (src *Chain) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsStat
 
 // ConnConfirm creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *Chain) ConnConfirm(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenAck(
+func (src *Chain) ConnConfirm(dstConnState connTypes.ConnectionResponse) sdk.Msg {
+	return connTypes.NewMsgConnectionOpenConfirm(
 		src.PathEnd.ConnectionID,
 		dstConnState.Proof,
-		dstConsState.Proof,
 		dstConnState.ProofHeight+1,
-		uint64(dstCsHeight),
-		defaultIBCVersion,
 		src.MustGetAddress(),
 	)
 }
