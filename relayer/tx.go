@@ -130,12 +130,12 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
 	case srcEnd.Connection.State == connState.TRYOPEN && dstEnd.Connection.State == connState.OPEN:
 		out.Src = append(out.Src, src.UpdateClient(hs[dst.ChainID]),
-			src.ConnConfirm(dstEnd, dstCons, dstConsH))
+			src.ConnConfirm(dstEnd))
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
 	case srcEnd.Connection.State == connState.OPEN && dstEnd.Connection.State == connState.TRYOPEN:
 		out.Dst = append(out.Dst, dst.UpdateClient(hs[src.ChainID]),
-			dst.ConnConfirm(srcEnd, srcCons, srcConsH))
+			dst.ConnConfirm(srcEnd))
 	}
 
 	return out, nil
@@ -309,7 +309,7 @@ func (src *Chain) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsStat
 
 // ConnConfirm creates a MsgConnectionOpenAck
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *Chain) ConnConfirm(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64) sdk.Msg {
+func (src *Chain) ConnConfirm(dstConnState connTypes.ConnectionResponse) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenConfirm(
 		src.PathEnd.ConnectionID,
 		dstConnState.Proof,

@@ -494,21 +494,8 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
-			// We are querying the state of the client for src on dst and finding the height
-			dstClientState, err := chains[dst].QueryClientState()
-			if err != nil {
-				return err
-			}
-			dstCsHeight := int64(dstClientState.ClientState.GetLatestHeight())
-
-			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(hs[dst].Height-1, dstCsHeight)
-			if err != nil {
-				return err
-			}
-
 			txs := []sdk.Msg{
-				chains[src].ConnConfirm(dstState, dstConsState, dstCsHeight),
+				chains[src].ConnConfirm(dstState),
 				chains[src].UpdateClient(hs[dst]),
 			}
 
