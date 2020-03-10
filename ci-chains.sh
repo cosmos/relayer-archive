@@ -88,6 +88,7 @@ $RELAYER --home $RLY_CONF q clients $c0
 $RELAYER --home $RLY_CONF q clients $c1
 
 echo "Creating connection in steps"
+sleep 5
 $RELAYER --home $RLY_CONF tx connection-step $c0 $c1 $c0cl $c1cl $c0conn $c1conn
 sleep 5
 $RELAYER --home $RLY_CONF tx connection-step $c0 $c1 $c0cl $c1cl $c0conn $c1conn
