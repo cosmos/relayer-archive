@@ -95,10 +95,10 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Query the stored client consensus states at those heights on both src and dst
 	var srcCons, dstCons clientTypes.ConsensusStateResponse
-	if srcCons, err = src.QueryClientConsensusState(hs[dst.ChainID].Height, srcConsH); err != nil {
+	if srcCons, err = src.QueryClientConsensusState(hs[src.ChainID].Height-1, srcConsH); err != nil {
 		return nil, err
 	}
-	if dstCons, err = dst.QueryClientConsensusState(hs[src.ChainID].Height, dstConsH); err != nil {
+	if dstCons, err = dst.QueryClientConsensusState(hs[dst.ChainID].Height-1, dstConsH); err != nil {
 		return nil, err
 	}
 
