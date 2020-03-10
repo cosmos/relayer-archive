@@ -86,7 +86,7 @@ c0chan=ibconechan
 c1chan=ibczerochan
 c0port=bank
 c1port=bank
-ordering=UNORDERED
+ordering=ORDERED
 # END IDENTIFIERS
 echo "Initializing lite clients..."
 sleep 8

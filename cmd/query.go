@@ -22,6 +22,9 @@ func init() {
 	queryCmd.AddCommand(queryConnection())
 	queryCmd.AddCommand(queryConnectionsUsingClient())
 	queryCmd.AddCommand(queryChannel())
+	queryCmd.AddCommand(queryNextSeqRecv())
+	queryCmd.AddCommand(queryPacketCommitment())
+	queryCmd.AddCommand(queryPacketAck())
 }
 
 // queryCmd represents the chain command
@@ -292,6 +295,112 @@ func queryChannel() *cobra.Command {
 			}
 
 			res, err := chain.QueryChannel(height)
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryNextSeqRecv() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "seq-send [chain-id] [channel-id] [port-id]",
+		Short: "Query the next sequence send for a given channel",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = chain.PathChannel(args[1], args[2]); err != nil {
+				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryNextSeqRecv(height)
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryPacketCommitment() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "packet-commit [chain-id] [channel-id] [port-id] [seq]",
+		Short: "Query the commitment for a given packet",
+		Args:  cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = chain.PathChannel(args[1], args[2]); err != nil {
+				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			seq, err := strconv.ParseInt(args[3], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryPacketCommitment(height, seq)
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryPacketAck() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "packet-ack [chain-id] [channel-id] [port-id] [seq]",
+		Short: "Query the commitment for a given packet",
+		Args:  cobra.ExactArgs(4),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			if err = chain.PathChannel(args[1], args[2]); err != nil {
+				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			}
+
+			height, err := chain.QueryLatestHeight()
+			if err != nil {
+				return err
+			}
+
+			seq, err := strconv.ParseInt(args[3], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryPacketAck(height, seq)
 			if err != nil {
 				return err
 			}

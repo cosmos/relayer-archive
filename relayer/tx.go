@@ -388,8 +388,8 @@ func (src *Chain) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse) sdk.M
 	)
 }
 
-// MsgPacket creates a MsgPacket
-func (src *Chain) MsgPacket(dst *Chain, sequence uint64, packetData chanState.PacketDataI, proof chanTypes.PacketResponse) sdk.Msg {
+// MsgRecvPacket creates a MsgPacket
+func (src *Chain) MsgRecvPacket(dst *Chain, sequence uint64, packetData chanState.PacketDataI, proof chanTypes.PacketResponse) sdk.Msg {
 	return chanTypes.NewMsgPacket(
 		src.NewPacket(
 			dst,
@@ -425,17 +425,15 @@ func (src *Chain) MsgAck(packet chanTypes.Packet, ack chanState.PacketAcknowledg
 }
 
 // MsgTransfer creates a new transfer message
-func (src *Chain) MsgTransfer(dst *Chain, dstHeight uint64, amount sdk.Coins, senderSrc, recieverDst sdk.AccAddress, source bool, sequence, timeout uint64, proof chanTypes.PacketResponse) sdk.Msg {
-	return src.MsgPacket(
-		dst,
-		sequence,
-		src.XferPacket(
-			amount,
-			senderSrc,
-			recieverDst,
-			source,
-			timeout),
-		proof,
+func (src *Chain) MsgTransfer(dst *Chain, dstHeight uint64, amount sdk.Coins, dstAddr sdk.AccAddress, source bool) sdk.Msg {
+	return xferTypes.NewMsgTransfer(
+		src.PathEnd.PortID,
+		src.PathEnd.ChannelID,
+		dstHeight,
+		amount,
+		src.MustGetAddress(),
+		dstAddr,
+		source,
 	)
 }
 

@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -44,6 +45,7 @@ func init() {
 	rawTransactionCmd.AddCommand(chanConfirm())
 	rawTransactionCmd.AddCommand(chanCloseInit())
 	rawTransactionCmd.AddCommand(chanCloseConfirm())
+	rawTransactionCmd.AddCommand(transferBegin())
 }
 
 // transactionCmd represents the tx command
@@ -737,6 +739,63 @@ func chanCloseConfirm() *cobra.Command {
 			txs := []sdk.Msg{
 				chains[src].UpdateClient(dstHeader),
 				chains[src].ChanCloseConfirm(dstChanState),
+			}
+
+			return SendAndPrint(txs, chains[src], cmd)
+		},
+	}
+	return transactionFlags(cmd)
+}
+
+func transferBegin() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "transfer [src-chain-id] [dst-chain-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [amount] [dst-addr]",
+		Short: "transfer",
+		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
+		Args:  cobra.ExactArgs(8),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = chains[src].PathChannel(args[2], args[4]); err != nil {
+				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
+			}
+
+			if err = chains[dst].PathChannel(args[3], args[5]); err != nil {
+				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
+			}
+
+			amount, err := sdk.ParseCoin(args[6])
+			if err != nil {
+				return err
+			}
+
+			// If there is a path seperator in the denom of the coins being sent,
+			// then src is not the source, otherwise it is
+			// NOTE: this will not work in the case where tokens are sent from A -> B -> C
+			// Need a function in the SDK to determine from a denom if the tokens are from this chain
+			var source bool
+			if strings.Contains(amount.GetDenom(), "/") {
+				source = false
+			} else {
+				source = true
+			}
+
+			dstAddr, err := sdk.AccAddressFromBech32(args[7])
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			if err != nil {
+				return err
+			}
+
+			txs := []sdk.Msg{
+				chains[src].MsgTransfer(chains[dst], dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source),
 			}
 
 			return SendAndPrint(txs, chains[src], cmd)

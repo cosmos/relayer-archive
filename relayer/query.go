@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"strings"
@@ -222,6 +223,138 @@ func (c *Chain) QueryChannel(height int64) (chanTypes.ChannelResponse, error) {
 	}
 
 	return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, channel, res.Proof, res.Height), nil
+}
+
+// func (c *Chain) QueryChannels(height int64) ([]chanTypes.ChannelResponse, error) {
+// 	return
+// }
+
+// QueryNextSeqRecv returns the next seqRecv for a configured channel
+func (c *Chain) QueryNextSeqRecv(height int64) (*chanTypes.RecvResponse, error) {
+	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
+		return nil, c.ErrPathNotSet(CHANPATH, err)
+	}
+
+	req := abci.RequestQuery{
+		Path:   "store/ibc/key",
+		Data:   ibctypes.KeyNextSequenceRecv(c.PathEnd.PortID, c.PathEnd.ChannelID),
+		Height: height,
+		Prove:  true,
+	}
+
+	res, err := c.QueryABCI(req)
+	if err != nil {
+		return nil, err
+	} else if res.Value == nil {
+		return nil, nil
+	}
+
+	out := chanTypes.NewRecvResponse(
+		c.PathEnd.PortID,
+		c.PathEnd.ChannelID,
+		binary.BigEndian.Uint64(res.Value),
+		res.Proof,
+		res.Height,
+	)
+
+	return &out, nil
+}
+
+// QueryNextSeqSend returns the next seqSend for a configured channel
+func (c *Chain) QueryNextSeqSend(height int64) (uint64, error) {
+	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
+		return 0, c.ErrPathNotSet(CHANPATH, err)
+	}
+
+	req := abci.RequestQuery{
+		Path:   "store/ibc/key",
+		Data:   ibctypes.KeyNextSequenceSend(c.PathEnd.PortID, c.PathEnd.ChannelID),
+		Height: height,
+		Prove:  true,
+	}
+
+	res, err := c.QueryABCI(req)
+	if err != nil {
+		return 0, err
+	} else if res.Value == nil {
+		return 0, nil
+	}
+
+	return binary.BigEndian.Uint64(res.Value), nil
+}
+
+// QueryPacketCommitment returns the packet commitment proof at a given height
+func (c *Chain) QueryPacketCommitment(height, seq int64) (*CommitmentResponse, error) {
+	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
+		return nil, c.ErrPathNotSet(CHANPATH, err)
+	}
+
+	req := abci.RequestQuery{
+		Path:   "store/ibc/key",
+		Data:   ibctypes.KeyPacketCommitment(c.PathEnd.PortID, c.PathEnd.ChannelID, uint64(seq)),
+		Height: height,
+		Prove:  true,
+	}
+
+	res, err := c.QueryABCI(req)
+	if err != nil {
+		return nil, err
+	} else if res.Value == nil {
+		return nil, fmt.Errorf("no response returned")
+	}
+
+	return &CommitmentResponse{
+		Data:  res.Value,
+		Proof: commitmenttypes.MerkleProof{Proof: res.Proof},
+		ProofPath: commitmenttypes.NewMerklePath(
+			strings.Split(
+				string(ibctypes.KeyPacketCommitment(c.PathEnd.PortID, c.PathEnd.ChannelID, uint64(seq))),
+				"/",
+			),
+		),
+		ProofHeight: uint64(res.Height),
+	}, nil
+}
+
+// CommitmentResponse returns the commiment hash along with the proof data
+type CommitmentResponse struct {
+	Data        []byte                      `json:"data" yaml:"data"`
+	Proof       commitmenttypes.MerkleProof `json:"proof,omitempty" yaml:"proof,omitempty"`
+	ProofPath   commitmenttypes.MerklePath  `json:"proof_path,omitempty" yaml:"proof_path,omitempty"`
+	ProofHeight uint64                      `json:"proof_height,omitempty" yaml:"proof_height,omitempty"`
+}
+
+// QueryPacketAck returns the packet commitment proof at a given height
+func (c *Chain) QueryPacketAck(height, seq int64) (*CommitmentResponse, error) {
+	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
+		return nil, c.ErrPathNotSet(CHANPATH, err)
+	}
+
+	req := abci.RequestQuery{
+		Path:   "store/ibc/key",
+		Data:   ibctypes.KeyPacketAcknowledgement(c.PathEnd.PortID, c.PathEnd.ChannelID, uint64(seq)),
+		Height: height,
+		Prove:  true,
+	}
+
+	res, err := c.QueryABCI(req)
+	if err != nil {
+		return nil, err
+	} else if res.Value == nil {
+		return nil, fmt.Errorf("no response returned")
+	}
+
+	return &CommitmentResponse{
+		Data:  res.Value,
+		Proof: commitmenttypes.MerkleProof{Proof: res.Proof},
+		ProofPath: commitmenttypes.NewMerklePath(
+			strings.Split(
+				string(ibctypes.KeyPacketAcknowledgement(c.PathEnd.PortID, c.PathEnd.ChannelID, uint64(seq))),
+				"/",
+			),
+		),
+		ProofHeight: uint64(res.Height),
+	}, nil
 }
 
 // QueryTxs returns an array of transactions given a tag
