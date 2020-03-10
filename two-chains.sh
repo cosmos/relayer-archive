@@ -92,3 +92,7 @@ sleep 5
 relayer --home $RLY_CONF tx raw conn-init ibc0 ibc1 ibconeclient ibczeroclient connectionidtest connectionidtest
 sleep 5
 relayer --home $RLY_CONF tx raw conn-try ibc1 ibc0 ibczeroclient ibconeclient connectionidtest connectionidtest
+sleep 5
+relayer --home $RLY_CONF tx raw conn-ack ibc0 ibc1 ibconeclient ibczeroclient connectionidtest connectionidtest
+sleep 5
+relayer --home $RLY_CONF tx raw conn-confirm ibc1 ibc0 ibczeroclient ibconeclient connectionidtest connectionidtest

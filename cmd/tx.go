@@ -446,7 +446,7 @@ func connAck() *cobra.Command {
 			dstCsHeight := int64(dstClientState.ClientState.GetLatestHeight())
 
 			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(hs[src].Height, dstCsHeight)
+			dstConsState, err := chains[dst].QueryClientConsensusState(hs[dst].Height-1, dstCsHeight)
 			if err != nil {
 				return err
 			}
@@ -502,7 +502,7 @@ func connConfirm() *cobra.Command {
 			dstCsHeight := int64(dstClientState.ClientState.GetLatestHeight())
 
 			// Then we need to query the consensus state for src at that height on dst
-			dstConsState, err := chains[dst].QueryClientConsensusState(hs[src].Height, dstCsHeight)
+			dstConsState, err := chains[dst].QueryClientConsensusState(hs[dst].Height-1, dstCsHeight)
 			if err != nil {
 				return err
 			}
