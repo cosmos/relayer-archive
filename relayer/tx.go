@@ -1,7 +1,6 @@
 package relayer
 
 import (
-	"fmt"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -279,8 +278,6 @@ func (src *Chain) ConnInit(dst *Chain) sdk.Msg {
 // ConnTry creates a MsgConnectionOpenTry
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
 func (src *Chain) ConnTry(dst *Chain, dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64) sdk.Msg {
-	fmt.Printf("dstConnState height: %v\n", dstConnState.ProofHeight)
-	fmt.Printf("dstConsState height: %v\n", dstConsState.ProofHeight)
 	return connTypes.NewMsgConnectionOpenTry(
 		src.PathEnd.ConnectionID,
 		src.PathEnd.ClientID,
