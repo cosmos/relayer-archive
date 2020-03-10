@@ -55,8 +55,10 @@ gaiacli config --home ibc0/n0/gaiacli/ node http://localhost:26657 &> /dev/null
 gaiacli config --home ibc1/n0/gaiacli/ node http://localhost:26557 &> /dev/null
 
 echo "Starting Gaiad instances..."
-gaiad --home ibc0/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc0.log 2>&1 &
-gaiad --home ibc1/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc1.log 2>&1 & 
+gaiad --home ibc0/n0/gaiad start --pruning=nothing > ibc0.log 2>&1 &
+gaiad --home ibc1/n0/gaiad start --pruning=nothing > ibc1.log 2>&1 & 
+# gaiad --home ibc0/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc0.log 2>&1 &
+# gaiad --home ibc1/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc1.log 2>&1 & 
 
 echo "Set the following env to make working with the running chains easier:"
 echo 
@@ -79,7 +81,7 @@ c1=ibc1
 c0cl=ibconeclient
 c1cl=ibczeroclient
 c0conn=ibconeconn
-c1conn=ibcczeroconn
+c1conn=ibczeroconn
 c0chan=ibconechan
 c1chan=ibczerochan
 c0port=bank
@@ -107,14 +109,10 @@ relayer --home $RLY_CONF tx raw conn-confirm $c1 $c0 $c1cl $c0cl $c1conn $c0conn
 echo
 echo "Create channel raw"
 sleep 5
-echo "relayer --home $RLY_CONF tx raw chan-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn $c0chan $c1chan $c0port $c1port $ordering"
 relayer --home $RLY_CONF tx raw chan-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn $c0chan $c1chan $c0port $c1port $ordering
 sleep 5
-echo "relayer --home $RLY_CONF tx raw chan-try $c1 $c0 $c1cl $c1conn $c1chan $c0chan $c1port $c0port"
 relayer --home $RLY_CONF tx raw chan-try $c1 $c0 $c1cl $c1conn $c1chan $c0chan $c1port $c0port
 sleep 5
-echo "relayer --home $RLY_CONF tx raw chan-ack $c0 $c1 $c0cl $c0chan $c1chan $c0port $c1port"
 relayer --home $RLY_CONF tx raw chan-ack $c0 $c1 $c0cl $c0chan $c1chan $c0port $c1port
 sleep 5
-echo "relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port"
 relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port
