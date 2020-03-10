@@ -550,7 +550,7 @@ func chanInit() *cobra.Command {
 			}
 
 			var order chanState.Order
-			if order = chanState.OrderFromString(args[6]); order == chanState.NONE {
+			if order = chanState.OrderFromString(args[10]); order == chanState.NONE {
 				return fmt.Errorf("invalid order '%s' passed in, expected 'UNORDERED' or 'ORDERED'", args[6])
 			}
 
@@ -562,9 +562,9 @@ func chanInit() *cobra.Command {
 
 func chanTry() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chan-try [src-chain-id] [dst-chain-id] [src-client-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
+		Use:   "chan-try [src-chain-id] [dst-chain-id] [src-client-id] [src-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id]",
 		Short: "chan-try",
-		Args:  cobra.ExactArgs(7),
+		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.c.GetChains(src, dst)
@@ -572,11 +572,11 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathChannelClient(args[2], args[3], args[5]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
+			if err = chains[src].FullPath(args[2], args[3], args[4], args[6]); err != nil {
+				return chains[src].ErrCantSetPath(relayer.FULLPATH, err)
 			}
 
-			if err = chains[dst].PathChannel(args[4], args[6]); err != nil {
+			if err = chains[dst].PathChannel(args[5], args[7]); err != nil {
 				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
 			}
 
@@ -585,7 +585,7 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
 			if err != nil {
 				return err
 			}
@@ -626,7 +626,7 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
 			if err != nil {
 				return err
 			}
@@ -667,7 +667,7 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
 			if err != nil {
 				return err
 			}

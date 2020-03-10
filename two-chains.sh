@@ -73,26 +73,48 @@ echo "NOTE: Below are account addresses for each chain. They are also validator 
 echo "  ibc0 address: $(relayer --home $RLY_CONF keys restore ibc0 testkey "$SEED0" -a)"
 echo "  ibc1 address: $(relayer --home $RLY_CONF keys restore ibc1 testkey "$SEED1" -a)"
 echo
+# BEGIN IDENTIFIERS
+c0=ibc0
+c1=ibc1
+c0cl=ibconeclient
+c1cl=ibczeroclient
+c0conn=ibconeconn
+c1conn=ibcczeroconn
+c0chan=ibconechan
+c1chan=ibczerochan
+c0port=bank
+c1port=bank
+ordering=UNORDERED
+# END IDENTIFIERS
 echo "Initializing lite clients..."
 sleep 8
-relayer --home $RLY_CONF lite init ibc0 -f
-relayer --home $RLY_CONF lite init ibc1 -f
+relayer --home $RLY_CONF lite init $c0 -f
+relayer --home $RLY_CONF lite init $c1 -f
 echo "Creating client ibconeclient for ibc1 on ibc0 and ibconzeroclient for ibc0 on ibc1..."
 sleep 5
-relayer --home $RLY_CONF tx client ibc0 ibc1 ibconeclient
-relayer --home $RLY_CONF tx client ibc1 ibc0 ibczeroclient
-echo
-echo "Updating clients ibconeclient and ibczeroclient..."
-sleep 5
-relayer --home $RLY_CONF tx update-client ibc0 ibc1 ibconeclient
-relayer --home $RLY_CONF tx update-client ibc1 ibc0 ibczeroclient
+relayer --home $RLY_CONF tx client $c0 $c1 $c0cl
+relayer --home $RLY_CONF tx client $c1 $c0 $c1cl
 echo
 echo "Create connection raw"
 sleep 5
-relayer --home $RLY_CONF tx raw conn-init ibc0 ibc1 ibconeclient ibczeroclient connectionidtest connectionidtest
+relayer --home $RLY_CONF tx raw conn-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn
 sleep 5
-relayer --home $RLY_CONF tx raw conn-try ibc1 ibc0 ibczeroclient ibconeclient connectionidtest connectionidtest
+relayer --home $RLY_CONF tx raw conn-try $c1 $c0 $c1cl $c0cl $c1conn $c0conn
 sleep 5
-relayer --home $RLY_CONF tx raw conn-ack ibc0 ibc1 ibconeclient ibczeroclient connectionidtest connectionidtest
+relayer --home $RLY_CONF tx raw conn-ack $c0 $c1 $c0cl $c1cl $c0conn $c1conn
 sleep 5
-relayer --home $RLY_CONF tx raw conn-confirm ibc1 ibc0 ibczeroclient ibconeclient connectionidtest connectionidtest
+relayer --home $RLY_CONF tx raw conn-confirm $c1 $c0 $c1cl $c0cl $c1conn $c0conn
+echo
+echo "Create channel raw"
+sleep 5
+echo "relayer --home $RLY_CONF tx raw chan-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn $c0chan $c1chan $c0port $c1port $ordering"
+relayer --home $RLY_CONF tx raw chan-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn $c0chan $c1chan $c0port $c1port $ordering
+sleep 5
+echo "relayer --home $RLY_CONF tx raw chan-try $c1 $c0 $c1cl $c1conn $c1chan $c0chan $c1port $c0port"
+relayer --home $RLY_CONF tx raw chan-try $c1 $c0 $c1cl $c1conn $c1chan $c0chan $c1port $c0port
+sleep 5
+echo "relayer --home $RLY_CONF tx raw chan-ack $c0 $c1 $c0cl $c0chan $c1chan $c0port $c1port"
+relayer --home $RLY_CONF tx raw chan-ack $c0 $c1 $c0cl $c0chan $c1chan $c0port $c1port
+sleep 5
+echo "relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port"
+relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port
