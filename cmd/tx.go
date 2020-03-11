@@ -797,6 +797,7 @@ func xfer() *cobra.Command {
 				return err
 			}
 
+			// MsgTransfer will call SendPacket on src chain
 			txs := []sdk.Msg{
 				chains[src].MsgTransfer(chains[dst], dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source),
 			}
@@ -829,6 +830,7 @@ func xfer() *cobra.Command {
 				return err
 			}
 
+			// reconstructing packet data here instead of retrieving from an indexed node
 			xferPacket := chains[src].XferPacket(
 				sdk.NewCoins(),
 				chains[src].MustGetAddress(),
@@ -837,6 +839,9 @@ func xfer() *cobra.Command {
 				19291024,
 			)
 
+			// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
+			// part of the command. In a real relayer, this would be a separate command that retrieved the packet
+			// information from an indexing node
 			txs = []sdk.Msg{
 				chains[src].UpdateClient(hs[dst]),
 				chains[src].MsgRecvPacket(
@@ -921,6 +926,7 @@ func xfersend() *cobra.Command {
 	return transactionFlags(cmd)
 }
 
+// UNTESTED: Currently filled with incorrect logic to make code compile
 func xferrecv() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "xfer-recv [src-chain-id] [dst-chain-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [amount] [dst-addr]",

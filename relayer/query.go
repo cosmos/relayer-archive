@@ -317,6 +317,7 @@ func (c *Chain) QueryPacketCommitment(height, seq int64) (*CommitmentResponse, e
 }
 
 // CommitmentResponse returns the commiment hash along with the proof data
+// NOTE: CommitmentResponse is used to wrap query response from querying PacketCommitment AND PacketAcknowledgement
 type CommitmentResponse struct {
 	Data        []byte                      `json:"data" yaml:"data"`
 	Proof       commitmenttypes.MerkleProof `json:"proof,omitempty" yaml:"proof,omitempty"`
