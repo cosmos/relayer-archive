@@ -23,12 +23,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
-	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	"github.com/cosmos/cosmos-sdk/simapp"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
-	authvesting "github.com/cosmos/cosmos-sdk/x/auth/vesting"
-	"github.com/cosmos/cosmos-sdk/x/ibc"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
@@ -68,15 +63,16 @@ func init() {
 
 	appCodec = codecstd.NewAppCodec(cdc)
 
-	cdc = codec.New()
-	sdk.RegisterCodec(cdc)
-	codec.RegisterCrypto(cdc)
-	codec.RegisterEvidences(cdc)
-	authvesting.RegisterCodec(cdc)
-	auth.RegisterCodec(cdc)
-	keys.RegisterCodec(cdc)
-	ibc.AppModuleBasic{}.RegisterCodec(cdc)
-	cdc.Seal()
+	// cdc = codec.New()
+	// sdk.RegisterCodec(cdc)
+	// codec.RegisterCrypto(cdc)
+	// codec.RegisterEvidences(cdc)
+	// authvesting.RegisterCodec(cdc)
+	// auth.RegisterCodec(cdc)
+	// keys.RegisterCodec(cdc)
+	// ibc.AppModuleBasic{}.RegisterCodec(cdc)
+	// xfertypes.RegisterCodec(cdc)
+	// cdc.Seal()
 
 }
 
