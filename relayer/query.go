@@ -161,6 +161,26 @@ func qClntsErr(err error) error { return fmt.Errorf("query clients failed: %w", 
 //  ICS 03 -> CONNECTIONS   //
 //////////////////////////////
 
+// QueryConnections gets any connections on a chain
+func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.ConnectionEnd, err error) {
+	var bz []byte
+	if bz, err = c.Cdc.MarshalJSON(connTypes.NewQueryAllConnectionsParams(page, limit)); err != nil {
+		return nil, qConnsErr(err)
+	}
+
+	if bz, _, err = c.QueryWithData(ibcQuerierRoute(connTypes.QuerierRoute, connTypes.QueryAllConnections), bz); err != nil {
+		return nil, qConnsErr(err)
+	}
+
+	if err = c.Cdc.UnmarshalJSON(bz, &conns); err != nil {
+		return nil, qConnsErr(err)
+	}
+
+	return conns, nil
+}
+
+func qConnsErr(err error) error { return fmt.Errorf("query connections failed: %w", err) }
+
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes.ClientConnectionsResponse, err error) {
 	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {

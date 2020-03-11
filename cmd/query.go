@@ -14,14 +14,16 @@ import (
 )
 
 func init() {
+	queryCmd.AddCommand(queryAccountCmd())
 	queryCmd.AddCommand(queryHeaderCmd())
 	queryCmd.AddCommand(queryNodeStateCmd())
 	queryCmd.AddCommand(queryClientCmd())
 	queryCmd.AddCommand(queryClientsCmd())
-	queryCmd.AddCommand(queryAccountCmd())
 	queryCmd.AddCommand(queryConnection())
+	queryCmd.AddCommand(queryConnections())
 	queryCmd.AddCommand(queryConnectionsUsingClient())
 	queryCmd.AddCommand(queryChannel())
+	queryCmd.AddCommand(queryChannels())
 	queryCmd.AddCommand(queryNextSeqRecv())
 	queryCmd.AddCommand(queryPacketCommitment())
 	queryCmd.AddCommand(queryPacketAck())
@@ -210,9 +212,32 @@ func queryClientsCmd() *cobra.Command {
 	return outputFlags(paginationFlags(cmd))
 }
 
+func queryConnections() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connections [chain-id]",
+		Short: "Query for all connections on a given chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryConnections(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
 func queryConnectionsUsingClient() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connections [chain-id] [client-id]",
+		Use:   "client-connections [chain-id] [client-id]",
 		Short: "Query the client for a counterparty chain",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -295,6 +320,29 @@ func queryChannel() *cobra.Command {
 			}
 
 			res, err := chain.QueryChannel(height)
+			if err != nil {
+				return err
+			}
+
+			return PrintOutput(res, cmd)
+		},
+	}
+
+	return outputFlags(paginationFlags(cmd))
+}
+
+func queryChannels() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "channels [chain-id]",
+		Short: "Query for all channels on a given chain",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryChannels(viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit))
 			if err != nil {
 				return err
 			}
