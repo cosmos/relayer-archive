@@ -116,13 +116,13 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// ICS4 : Channels
 	// - Determine if any channel handshakes are in progress
 
-	channels, err := src.QueryChannelsUsingConnections(connections.ConnectionPaths)
+	channels, err := src.QueryChannels(0, 10000)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, srcChan := range channels {
-		if srcChan.Channel.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
+		if srcChan.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
 			return src.CreateChannelStep(dst, chanState.ORDERED)
 		}
 	}
@@ -135,7 +135,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 	// ICS?: Packet Messages
 	// - Determine if any packets, acknowledgements, or timeouts need to be relayed
 	for _, srcChan := range channels {
-		if srcChan.Channel.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
+		if srcChan.GetCounterparty().GetChannelID() == dst.PathEnd.ChannelID {
 			// Deal with packets
 			// TODO: Once ADR15 is merged this section needs to be completed cc @mossid @fedekunze @cwgoes
 
