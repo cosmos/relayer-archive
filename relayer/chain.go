@@ -14,9 +14,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/spf13/cobra"
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"gopkg.in/yaml.v2"
 )
 
 // NewChain returns a new instance of Chain
@@ -48,7 +50,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 	return &Chain{
 		Key: key, ChainID: chainID, RPCAddr: rpcAddr, AccountPrefix: accPrefix, Gas: gas,
 		GasAdjustment: gasAdj, GasPrices: gp, DefaultDenom: defaultDenom, Memo: memo, Keybase: keybase,
-		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath, logger: log.NewTMLogger(os.Stdout)}, nil
+		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath, logger: log.NewTMLogger(log.NewSyncWriter(os.Stdout))}, nil
 }
 
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
@@ -166,4 +168,40 @@ func (c *Chain) MustGetAddress() sdk.AccAddress {
 
 func (c *Chain) String() string {
 	return c.ChainID
+}
+
+// PrintOutput fmt.Printlns the json or yaml representation of whatever is passed in
+// CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
+func (c *Chain) PrintOutput(toPrint interface{}, cmd *cobra.Command) error {
+	var (
+		out          []byte
+		err          error
+		text, indent bool
+	)
+
+	text, err = cmd.Flags().GetBool("text")
+	if err != nil {
+		return err
+	}
+
+	indent, err = cmd.Flags().GetBool("indent")
+	if err != nil {
+		return err
+	}
+
+	switch {
+	case indent:
+		out, err = c.Amino.MarshalJSONIndent(toPrint, "", "  ")
+	case text:
+		out, err = yaml.Marshal(&toPrint)
+	default:
+		out, err = c.Amino.MarshalJSON(toPrint)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(out))
+	return nil
 }

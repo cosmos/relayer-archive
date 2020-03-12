@@ -20,14 +20,18 @@ func rawTransactionCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
+		updateClientCmd(),
+		createClientCmd(),
 		connInit(),
 		connTry(),
 		connAck(),
 		connConfirm(),
+		createConnectionStepCmd(),
 		chanInit(),
 		chanTry(),
 		chanAck(),
 		chanConfirm(),
+		createChannelStepCmd(),
 		chanCloseInit(),
 		chanCloseConfirm(),
 		xfersend(),
@@ -36,6 +40,65 @@ func rawTransactionCmd() *cobra.Command {
 	)
 
 	return cmd
+}
+func updateClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update-client [src-chain-id] [dst-chain-id] [client-id]",
+		Short: "update client for dst-chain on src-chain",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = chains[src].PathClient(args[2]); err != nil {
+				return chains[src].ErrCantSetPath(relayer.CLNTPATH, err)
+			}
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			if err != nil {
+				return err
+			}
+
+			return SendAndPrint([]sdk.Msg{chains[src].UpdateClient(dstHeader)}, chains[src], cmd)
+		},
+	}
+	return transactionFlags(cmd)
+}
+
+func createClientCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "client [src-chain-id] [dst-chain-id] [client-id]",
+		Short: "create a client for dst-chain on src-chain",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			dstHeader, err := chains[dst].UpdateLiteWithHeader()
+			if err != nil {
+				return err
+			}
+
+			err = chains[src].PathClient(args[2])
+			if err != nil {
+				return err
+			}
+
+			return SendAndPrint([]sdk.Msg{chains[src].CreateClient(dstHeader)}, chains[src], cmd)
+		},
+	}
+
+	return transactionFlags(cmd)
 }
 
 func connInit() *cobra.Command {
@@ -219,6 +282,49 @@ func connConfirm() *cobra.Command {
 	return transactionFlags(cmd)
 }
 
+func createConnectionStepCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "connection-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
+		Short: "create a connection between chains, passing in identifiers",
+		Long:  "This command creates the next handshake message given a specifc set of identifiers. If the command fails, you can safely run it again to repair an unfinished connection",
+		Args:  cobra.ExactArgs(6),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = chains[src].PathConnection(args[2], args[4]); err != nil {
+				return chains[src].ErrCantSetPath(relayer.CONNPATH, err)
+			}
+
+			if err = chains[dst].PathConnection(args[3], args[5]); err != nil {
+				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
+			}
+
+			msgs, err := chains[src].CreateConnectionStep(chains[dst])
+			if err != nil {
+				return err
+			}
+
+			if len(msgs.Src) > 0 {
+				if err = SendAndPrint(msgs.Src, chains[src], cmd); err != nil {
+					return err
+				}
+			} else if len(msgs.Dst) > 0 {
+				if err = SendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
+	}
+
+	return transactionFlags(cmd)
+}
+
 func chanInit() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chan-init [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-conn-id] [dst-conn-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [ordering]",
@@ -373,6 +479,49 @@ func chanConfirm() *cobra.Command {
 	return transactionFlags(cmd)
 }
 
+func createChannelStepCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
+		Short: "create the next step in creating a channel between chains with the passed identifiers",
+		Args:  cobra.ExactArgs(11),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			ordering := chanState.OrderFromString(args[10])
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			if err = chains[src].FullPath(args[2], args[4], args[6], args[8]); err != nil {
+				return chains[src].ErrCantSetPath(relayer.FULLPATH, err)
+			}
+
+			if err = chains[dst].FullPath(args[3], args[5], args[7], args[9]); err != nil {
+				return chains[dst].ErrCantSetPath(relayer.FULLPATH, err)
+			}
+
+			msgs, err := chains[src].CreateChannelStep(chains[dst], ordering)
+			if err != nil {
+				return err
+			}
+
+			if len(msgs.Src) > 0 {
+				if err = SendAndPrint(msgs.Src, chains[src], cmd); err != nil {
+					return err
+				}
+			} else if len(msgs.Dst) > 0 {
+				if err = SendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		},
+	}
+
+	return transactionFlags(cmd)
+}
+
 func chanCloseInit() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chan-close-init [chain-id] [chan-id] [port-id]",
@@ -419,7 +568,7 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height)
+			dstChanState, err := chains[dst].QueryChannel(dstHeader.Height - 1)
 			if err != nil {
 				return err
 			}

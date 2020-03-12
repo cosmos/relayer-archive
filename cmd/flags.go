@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -9,7 +8,6 @@ import (
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -79,50 +77,15 @@ func getTimeout(cmd *cobra.Command) (out time.Duration, err error) {
 	return
 }
 
-// PrintOutput fmt.Printlns the json or yaml representation of whatever is passed in
-// CONTRACT: The cmd calling this function needs to have the "json" and "indent" flags set
-func PrintOutput(toPrint interface{}, cmd *cobra.Command) error {
-	var (
-		out          []byte
-		err          error
-		text, indent bool
-	)
-
-	text, err = cmd.Flags().GetBool(flagText)
-	if err != nil {
-		return err
-	}
-	indent, err = cmd.Flags().GetBool(flags.FlagIndentResponse)
-	if err != nil {
-		return err
-	}
-
-	switch {
-	case indent:
-		out, err = cdc.MarshalJSONIndent(toPrint, "", "  ")
-	case text:
-		out, err = yaml.Marshal(&toPrint)
-	default:
-		out, err = cdc.MarshalJSON(toPrint)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Println(string(out))
-	return nil
-}
-
 // PrintTxs prints transactions prior to sending if the flag has been passed in
-func PrintTxs(toPrint interface{}, cmd *cobra.Command) error {
+func PrintTxs(toPrint interface{}, chain *relayer.Chain, cmd *cobra.Command) error {
 	print, err := cmd.Flags().GetBool(flagPrintTx)
 	if err != nil {
 		return err
 	}
 
 	if print {
-		err = PrintOutput(toPrint, cmd)
+		err = chain.PrintOutput(toPrint, cmd)
 		if err != nil {
 			return err
 		}
@@ -133,7 +96,7 @@ func PrintTxs(toPrint interface{}, cmd *cobra.Command) error {
 
 // SendAndPrint sends the transaction with printing options from the CLI
 func SendAndPrint(txs []sdk.Msg, chain *relayer.Chain, cmd *cobra.Command) (err error) {
-	if err = PrintTxs(txs, cmd); err != nil {
+	if err = PrintTxs(txs, chain, cmd); err != nil {
 		return err
 	}
 
@@ -142,5 +105,5 @@ func SendAndPrint(txs []sdk.Msg, chain *relayer.Chain, cmd *cobra.Command) (err 
 		return err
 	}
 
-	return PrintOutput(res, cmd)
+	return chain.PrintOutput(res, cmd)
 }
