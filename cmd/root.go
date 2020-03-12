@@ -19,7 +19,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path"
 	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
@@ -28,7 +27,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/simapp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -55,7 +53,7 @@ func init() {
 		startCmd,
 		transactionCmd(),
 		chainsCmd(),
-		pathsCommand(),
+		pathsCmd(),
 		configCmd(),
 	)
 
@@ -70,62 +68,6 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "relayer",
 	Short: "This application relays data between configured IBC enabled chains",
-}
-
-func configCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "config",
-		Short: "Returns configuration data",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			home, err := cmd.Flags().GetString(flags.FlagHome)
-			if err != nil {
-				return err
-			}
-
-			cfgPath := path.Join(home, "config", "config.yaml")
-			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-				if _, err := os.Stat(home); os.IsNotExist(err) {
-					return fmt.Errorf("Home path does not exist: %s", home)
-				}
-				return fmt.Errorf("Config does not exist: %s", cfgPath)
-			}
-
-			out, err := yaml.Marshal(config)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println(string(out))
-			return nil
-		},
-	}
-
-	return cmd
-}
-
-func initCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "init",
-		Short: "Creates a default home directory at path defined by --home",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return nil
-		},
-	}
-	return cmd
-}
-
-func pathsCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "paths",
-		Short: "print out configured paths with direction",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			for _, p := range config.Paths {
-				fmt.Println(p.String())
-			}
-			return nil
-		},
-	}
-	return cmd
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

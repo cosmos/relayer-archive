@@ -19,11 +19,24 @@ func (p Paths) MustYAML() string {
 	return string(out)
 }
 
-// SetIndices sets the index of the path
-func (p Paths) SetIndices() {
-	for i, path := range p {
-		path.Index = i
+// MustYAML returns the yaml string representation of the Path
+func (p Path) MustYAML() string {
+	out, err := yaml.Marshal(p)
+	if err != nil {
+		panic(err)
 	}
+	return string(out)
+}
+
+// SetIndices sets the index of the path
+func (p Paths) SetIndices() Paths {
+	out := Paths{}
+	for i, path := range p {
+		foo := path
+		foo.Index = i
+		out = append(out, foo)
+	}
+	return out
 }
 
 // PathsFromChains returns a path from the config between two chains
@@ -61,7 +74,7 @@ func (p Path) End(chainID string) *PathEnd {
 }
 
 func (p Path) String() string {
-	return fmt.Sprintf("%s ->\n %s", p.Src.String(), p.Dst.String())
+	return fmt.Sprintf("[%d] %s ->\n %s", p.Index, p.Src.String(), p.Dst.String())
 }
 
 // PathEnd represents the local connection identifers for a relay path
@@ -74,19 +87,23 @@ type PathEnd struct {
 	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
 }
 
-func (p *PathEnd) vclient() error {
+// Vclient validates the client identifer in the path
+func (p *PathEnd) Vclient() error {
 	return host.DefaultClientIdentifierValidator(p.ClientID)
 }
 
-func (p *PathEnd) vconn() error {
+// Vconn validates the connection identifer in the path
+func (p *PathEnd) Vconn() error {
 	return host.DefaultConnectionIdentifierValidator(p.ConnectionID)
 }
 
-func (p *PathEnd) vchan() error {
+// Vchan validates the channel identifer in the path
+func (p *PathEnd) Vchan() error {
 	return host.DefaultChannelIdentifierValidator(p.ChannelID)
 }
 
-func (p *PathEnd) vport() error {
+// Vport validates the port identifer in the path
+func (p *PathEnd) Vport() error {
 	return host.DefaultPortIdentifierValidator(p.PortID)
 }
 
@@ -212,48 +229,48 @@ func (p *PathEnd) Validate(t pathType) error {
 	// TODO: validate chain ID here too?
 	switch t {
 	case CLNTPATH:
-		if err := p.vclient(); err != nil {
+		if err := p.Vclient(); err != nil {
 			return err
 		}
 		return nil
 	case CONNPATH:
-		if err := p.vclient(); err != nil {
+		if err := p.Vclient(); err != nil {
 			return err
 		}
-		if err := p.vconn(); err != nil {
+		if err := p.Vconn(); err != nil {
 			return err
 		}
 		return nil
 	case CHANPATH:
-		if err := p.vchan(); err != nil {
+		if err := p.Vchan(); err != nil {
 			return err
 		}
-		if err := p.vport(); err != nil {
+		if err := p.Vport(); err != nil {
 			return err
 		}
 		return nil
 	case CLNTCHANPATH:
-		if err := p.vclient(); err != nil {
+		if err := p.Vclient(); err != nil {
 			return err
 		}
-		if err := p.vchan(); err != nil {
+		if err := p.Vchan(); err != nil {
 			return err
 		}
-		if err := p.vport(); err != nil {
+		if err := p.Vport(); err != nil {
 			return err
 		}
 		return nil
 	case FULLPATH:
-		if err := p.vclient(); err != nil {
+		if err := p.Vclient(); err != nil {
 			return err
 		}
-		if err := p.vconn(); err != nil {
+		if err := p.Vconn(); err != nil {
 			return err
 		}
-		if err := p.vchan(); err != nil {
+		if err := p.Vchan(); err != nil {
 			return err
 		}
-		if err := p.vport(); err != nil {
+		if err := p.Vport(); err != nil {
 			return err
 		}
 		return nil

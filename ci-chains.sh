@@ -72,10 +72,6 @@ echo "Query node-state"
 $RELAYER --home $RLY_CONF q node-state $c0   
 $RELAYER --home $RLY_CONF q node-state $c0   
 
-echo "Querying client states"
-$RELAYER --home $RLY_CONF q client $c0 $c0cl 
-$RELAYER --home $RLY_CONF q client $c1 $c1cl
-
 echo "Querying clients"
 $RELAYER --home $RLY_CONF q clients $c0
 $RELAYER --home $RLY_CONF q clients $c1

@@ -2,12 +2,8 @@ package cmd
 
 import (
 	"fmt"
-	"strconv"
-	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	"gopkg.in/yaml.v2"
 )
 
@@ -21,8 +17,46 @@ func chainsCmd() *cobra.Command {
 		chainsListCmd(),
 		chainsDeleteCmd(),
 		chainsAddCmd(),
+		chainsEditCmd(),
+		chainsShowCmd(),
 	)
 
+	return cmd
+}
+
+func chainsShowCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "show [chain-id]",
+		Short: "Returns a chain's configuration data",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			out, err := yaml.Marshal(config.Chains.Get(args[0]))
+			if err != nil {
+				return err
+			}
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+	return cmd
+
+}
+
+func chainsEditCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "edit [chain-id] [key] [value]",
+		Short: "Returns chain configuration data",
+		Args:  cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := config.Chains.Get(args[0]).Update(args[1], args[2])
+			if err != nil {
+				return err
+			}
+			config.DeleteChain(args[0])
+			config.AddChain(c)
+			return overWriteConfig(cmd, config)
+		},
+	}
 	return cmd
 }
 
@@ -59,81 +93,103 @@ func chainsAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Reads in a series of user input and generates a new chain in the config",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			c := ChainConfig{}
+			var err error
+
+			// TODO: figure out how to parse gaia style configs to pull out necessary data
+			// for chain configuration
+			//
+			// url, err := getURL(cmd)
+			// if err != nil {
+			// 	return err
+			// }
+
+			// if len(url) > 0 {
+			// 	cl, err := rpcclient.NewHTTP(url, "/websocket")
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// 	gen, err := cl.Genesis()
+			// 	if err != nil {
+			// 		return err
+			// 	}
+			// }
+
+			var value string
 			fmt.Println("ChainID (i.e. cosmoshub2):")
-			cid, err := readStdin()
-			if err != nil {
+			if value, err = readStdin(); err != nil {
+				return err
+			}
+
+			if c, err = c.Update("chain-id", value); err != nil {
 				return err
 			}
 
 			fmt.Println("Default Key (i.e. testkey):")
-			key, err := readStdin()
-			if err != nil {
+			if value, err = readStdin(); err != nil {
+				return err
+			}
+
+			if c, err = c.Update("key", value); err != nil {
 				return err
 			}
 
 			fmt.Println("RPC Address (i.e. http://localhost:26657):")
-			rpc, err := readStdin()
-			if err != nil {
+			if value, err = readStdin(); err != nil {
 				return err
 			}
 
-			if _, err = rpcclient.NewHTTP(rpc, "/websocket"); err != nil {
+			if c, err = c.Update("rpc-addr", value); err != nil {
 				return err
 			}
 
 			fmt.Println("Account Prefix (i.e. cosmos):")
-			accPrefix, err := readStdin()
-			if err != nil {
+			if value, err = readStdin(); err != nil {
+				return err
+			}
+
+			if c, err = c.Update("account-prefix", value); err != nil {
 				return err
 			}
 
 			fmt.Println("Gas (i.e. 200000):")
-			g, err := readStdin()
-			if err != nil {
+			if value, err = readStdin(); err != nil {
 				return err
 			}
 
-			gas, err := strconv.ParseInt(g, 10, 64)
-			if err != nil {
+			if c, err = c.Update("gas", value); err != nil {
 				return err
 			}
 
-			fmt.Println("gas-prices (i.e. 0.025stake):")
-			gasPrices, err := readStdin()
-			if err != nil {
+			fmt.Println("Gas Prices (i.e. 0.025stake):")
+			if value, err = readStdin(); err != nil {
 				return err
 			}
 
-			if _, err = sdk.ParseDecCoins(gasPrices); err != nil {
+			if c, err = c.Update("gas-prices", value); err != nil {
 				return err
 			}
 
 			fmt.Println("Default Denom (i.e. stake):")
-			denom, err := readStdin()
-			if err != nil {
+			if value, err = readStdin(); err != nil {
+				return err
+			}
+
+			if c, err = c.Update("default-denom", value); err != nil {
 				return err
 			}
 
 			fmt.Println("Trusting Period (i.e. 336h)")
-			trustingPeriod, err := readStdin()
-			if err != nil {
+			if value, err = readStdin(); err != nil {
 				return err
 			}
 
-			if _, err = time.ParseDuration(trustingPeriod); err != nil {
+			if c, err = c.Update("trusting-period", value); err != nil {
 				return err
 			}
 
-			return overWriteConfig(cmd, config.AddChain(ChainConfig{
-				Key:            key,
-				ChainID:        cid,
-				RPCAddr:        rpc,
-				AccountPrefix:  accPrefix,
-				Gas:            uint64(gas),
-				GasPrices:      gasPrices,
-				DefaultDenom:   denom,
-				TrustingPeriod: trustingPeriod,
-			}))
+			// TODO: ensure that there are no other configured chains with the same ID
+			return overWriteConfig(cmd, config.AddChain(c))
 		},
 	}
 	return cmd

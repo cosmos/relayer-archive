@@ -8,6 +8,7 @@ import (
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
 )
 
 var (
@@ -73,6 +74,24 @@ func getTimeout(cmd *cobra.Command) (out time.Duration, err error) {
 	}
 	if out, err = time.ParseDuration(to); err != nil {
 		return
+	}
+	return
+}
+
+func urlFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagURL, "u", "", "url to fecth data from")
+	viper.BindPFlag(flagURL, cmd.Flags().Lookup(flagURL))
+	return cmd
+}
+
+func getURL(cmd *cobra.Command) (out string, err error) {
+	if out, err = cmd.Flags().GetString(flagURL); err != nil {
+		return
+	}
+	if len(out) > 0 {
+		if _, err = rpcclient.NewHTTP(out, "/websocket"); err != nil {
+			return
+		}
 	}
 	return
 }
