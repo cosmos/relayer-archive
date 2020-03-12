@@ -75,11 +75,11 @@ echo "NOTE: Below are account addresses for each chain. They are also validator 
 echo "  ibc0 address: $(relayer --home $RLY_CONF keys restore ibc0 testkey "$SEED0" -a)"
 echo "  ibc1 address: $(relayer --home $RLY_CONF keys restore ibc1 testkey "$SEED1" -a)"
 echo
-# echo "Creating configured path between ibc0 and ibc1..."
-# sleep 8
-# relayer --home $RLY_CONF lite init ibc0 -f
-# relayer --home $RLY_CONF lite init ibc1 -f
-# sleep 5
-# relayer --home $RLY_CONF tx full-path ibc0 ibc1
-# echo
-# echo "Ready to send msgs..."
+echo "Creating configured path between ibc0 and ibc1..."
+sleep 8
+relayer --home $RLY_CONF lite init ibc0 -f
+relayer --home $RLY_CONF lite init ibc1 -f
+sleep 5
+relayer --home $RLY_CONF tx full-path ibc0 ibc1
+echo
+echo "Ready to send msgs..."

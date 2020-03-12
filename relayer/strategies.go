@@ -53,12 +53,10 @@ func (r *RelayMsgs) Send(src, dst *Chain, cmd *cobra.Command) error {
 		// Submit the transactions to src chain
 		res, err := src.SendMsgs(r.Src)
 		if err != nil || res.Code != 0 {
-			if err = src.PrintOutput(res, cmd); err != nil {
-				return err
-			}
+			src.logger.Info(fmt.Sprintf("FAILED  [%s] <- %s %s(%s)", src.ChainID, getMsgAction(r.Src), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
 		} else {
 			// NOTE: Add more data to this such as identifiers
-			src.logger.Info(fmt.Sprintf("[%s] <- %s", src.ChainID, getMsgAction(r.Src)))
+			src.logger.Info(fmt.Sprintf("SUCCESS [%s] <- %s", src.ChainID, getMsgAction(r.Src)))
 		}
 	}
 
@@ -66,12 +64,10 @@ func (r *RelayMsgs) Send(src, dst *Chain, cmd *cobra.Command) error {
 		// Submit the transactions to dst chain
 		res, err := dst.SendMsgs(r.Dst)
 		if err != nil || res.Code != 0 {
-			if err = dst.PrintOutput(res, cmd); err != nil {
-				return err
-			}
+			dst.logger.Info(fmt.Sprintf("FAILED  [%s] <- %s %s(%s)", dst.ChainID, getMsgAction(r.Dst), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
 		} else {
 			// NOTE: Add more data to this such as identifiers
-			dst.logger.Info(fmt.Sprintf("[%s] <- %s", dst.ChainID, getMsgAction(r.Dst)))
+			dst.logger.Info(fmt.Sprintf("SUCCESS [%s] <- %s", dst.ChainID, getMsgAction(r.Dst)))
 		}
 	}
 
