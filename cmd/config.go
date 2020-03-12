@@ -92,6 +92,7 @@ func configInitCmd() *cobra.Command {
 			cfgDir := path.Join(home, "config")
 			cfgPath := path.Join(cfgDir, "config.yaml")
 
+			// TODO: fix case where --home dir doesn't exist
 			// If the config doesn't exist...
 			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 				// And the home folder doesn't exist...

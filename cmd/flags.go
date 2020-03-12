@@ -21,6 +21,8 @@ var (
 	flagTimeout = "timeout"
 	flagConfig  = "config"
 	flagPrintTx = "print-tx"
+	flagJSON    = "json"
+	flagFile    = "file"
 )
 
 func liteFlags(cmd *cobra.Command) *cobra.Command {
@@ -58,6 +60,18 @@ func outputFlags(cmd *cobra.Command) *cobra.Command {
 func addressFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
 	viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress))
+	return cmd
+}
+
+func jsonFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Bool(flagJSON, false, "returns the response in json format")
+	viper.BindPFlag(flagJSON, cmd.Flags().Lookup(flagJSON))
+	return cmd
+}
+
+func fileFlag(cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().StringP(flagFile, "f", "", "fetch json data from specified file")
+	viper.BindPFlag(flagFile, cmd.Flags().Lookup(flagFile))
 	return cmd
 }
 
