@@ -75,23 +75,11 @@ echo "NOTE: Below are account addresses for each chain. They are also validator 
 echo "  ibc0 address: $(relayer --home $RLY_CONF keys restore ibc0 testkey "$SEED0" -a)"
 echo "  ibc1 address: $(relayer --home $RLY_CONF keys restore ibc1 testkey "$SEED1" -a)"
 echo
-# BEGIN IDENTIFIERS
-c0=ibc0
-c1=ibc1
-c0cl=ibconeclient
-c1cl=ibczeroclient
-
-# END IDENTIFIERS
-echo "Initializing lite clients..."
+echo "Creating configred path between ibc0 and ibc1..."
 sleep 8
-relayer --home $RLY_CONF lite init $c0 -f
-relayer --home $RLY_CONF lite init $c1 -f
-echo "Creating client ibconeclient for ibc1 on ibc0 and ibconzeroclient for ibc0 on ibc1..."
+relayer --home $RLY_CONF lite init ibc0 -f
+relayer --home $RLY_CONF lite init ibc1 -f
 sleep 5
-relayer --home $RLY_CONF tx clients $c0 $c1 $c0cl $c1cl
+relayer --home $RLY_CONF tx full-path ibc0 ibc1
 echo
-echo "Create connection"
-relayer --home $RLY_CONF tx connection $c0 $c1
-# echo 
-# echo "Create channel"
-# relayer --home $RLY_CONF tx channel $c0 $c1
+echo "Ready to send msgs..."

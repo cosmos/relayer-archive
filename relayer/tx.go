@@ -123,37 +123,6 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	return out, nil
 }
 
-// CreateChannel creates a connection between two chains given src and dst client IDs
-func (src *Chain) CreateChannel(dst *Chain, timeout time.Duration, ordering chanState.Order) error {
-	ticker := time.NewTicker(timeout)
-	for ; true; <-ticker.C {
-		msgs, err := src.CreateChannelStep(dst, ordering)
-		if err != nil {
-			return err
-		}
-
-		if !msgs.Ready() {
-			break
-		}
-
-		// Submit the transactions to src chain
-		srcRes, err := src.SendMsgs(msgs.Src)
-		if err != nil {
-			return err
-		}
-		src.logger.Info(srcRes.String())
-
-		// Submit the transactions to dst chain
-		dstRes, err := dst.SendMsgs(msgs.Dst)
-		if err != nil {
-			return err
-		}
-		src.logger.Info(dstRes.String())
-	}
-
-	return nil
-}
-
 // CreateChannelStep returns the next set of messages for creating a channel with given
 // identifiers between chains src and dst. If the handshake hasn't started, then CreateChannelStep
 // will begin the handshake on the src chain

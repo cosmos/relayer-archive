@@ -28,11 +28,11 @@ func (p Paths) SetIndices() {
 
 // PathsFromChains returns a path from the config between two chains
 func (p Paths) PathsFromChains(src, dst string) (Paths, error) {
-	p.SetIndices()
 	var out Paths
-	for _, pth := range p {
-		if (pth.Dst.ChainID == src || pth.Src.ChainID == src) && (pth.Dst.ChainID == dst || pth.Src.ChainID == dst) {
-			out = append(out, pth)
+	for i, path := range p {
+		if (path.Dst.ChainID == src || path.Src.ChainID == src) && (path.Dst.ChainID == dst || path.Src.ChainID == dst) {
+			path.Index = i
+			out = append(out, path)
 		}
 	}
 	if len(out) == 0 {

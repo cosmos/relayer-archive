@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
+	"github.com/tendermint/tendermint/libs/log"
 )
 
 // transactionCmd represents the tx command
@@ -43,6 +45,7 @@ func transactionCmd() *cobra.Command {
 		createChannelStepCmd(),
 		updateClientCmd(),
 		rawTransactionCmd(),
+		fullPathCmd(),
 	)
 
 	return cmd
@@ -110,9 +113,9 @@ func createClientCmd() *cobra.Command {
 
 func createClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clients [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id]",
+		Use:   "clients [src-chain-id] [dst-chain-id] [index]",
 		Short: "create a clients for dst-chain on src-chain and src-chain on dst-chain",
-		Args:  cobra.ExactArgs(4),
+		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.c.GetChains(src, dst)
@@ -125,11 +128,37 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathClient(args[2]); err != nil {
+			// Find any configured paths between the chains
+			paths, err := config.Paths.PathsFromChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			// Given the number of args and the number of paths,
+			// work on the appropriate path
+			var path relayer.Path
+			switch {
+			case len(args) == 3 && len(paths) > 1:
+				i, err := strconv.ParseInt(args[2], 10, 64)
+				if err != nil {
+					return err
+				}
+				path = paths[i]
+			case len(args) == 3 && len(paths) == 1:
+				fmt.Println(paths.MustYAML())
+				return fmt.Errorf("passed in index where only one path exists between chains %s and %s", src, dst)
+			case len(args) == 2 && len(paths) > 1:
+				fmt.Println(paths.MustYAML())
+				return fmt.Errorf("more than one path between %s and %s exists, please try again with index", src, dst)
+			case len(args) == 2 && len(paths) == 1:
+				path = paths[0]
+			}
+
+			if err = chains[src].SetPath(path.Src, relayer.CLNTPATH); err != nil {
 				return chains[src].ErrCantSetPath(relayer.CLNTPATH, err)
 			}
 
-			if err = chains[dst].PathClient(args[3]); err != nil {
+			if err = chains[dst].SetPath(path.Dst, relayer.CLNTPATH); err != nil {
 				return chains[dst].ErrCantSetPath(relayer.CLNTPATH, err)
 			}
 
@@ -208,16 +237,14 @@ func createConnectionCmd() *cobra.Command {
 
 				if len(msgs.Src) > 0 {
 					// Submit the transactions to src chain
-					err = SendAndPrint(msgs.Src, chains[src], cmd)
-					if err != nil {
+					if err = SendAndPrint(msgs.Src, chains[src], cmd); err != nil {
 						return err
 					}
 				}
 
 				if len(msgs.Dst) > 0 {
 					// Submit the transactions to dst chain
-					err = SendAndPrint(msgs.Dst, chains[dst], cmd)
-					if err != nil {
+					if err = SendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
 						return err
 					}
 				}
@@ -275,10 +302,10 @@ func createConnectionStepCmd() *cobra.Command {
 
 func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
-		Short: "create a channel with the passed identifiers between chains",
+		Use:   "channel [src-chain-id] [dst-chain-id] [index]",
+		Short: "create a channel between two configured chains with a configured path",
 		Long:  "FYI: DRAGONS HERE, not tested",
-		Args:  cobra.ExactArgs(11),
+		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.c.GetChains(src, dst)
@@ -291,36 +318,81 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			if err := chains[src].FullPath(args[2], args[4], args[6], args[8]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.FULLPATH, err)
-			}
-
-			if err := chains[dst].FullPath(args[3], args[5], args[7], args[9]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.FULLPATH, err)
-			}
-
-			var order chanState.Order
-			if order = chanState.OrderFromString(args[10]); order == chanState.NONE {
-				return fmt.Errorf("invalid order passed in %s, expected 'UNORDERED' or 'ORDERED'", args[10])
-			}
-
-			err = chains[src].CreateChannel(chains[dst], to, order)
+			// Find any configured paths between the chains
+			paths, err := config.Paths.PathsFromChains(src, dst)
 			if err != nil {
 				return err
 			}
 
+			// Given the number of args and the number of paths,
+			// work on the appropriate path
+			var path relayer.Path
+			switch {
+			case len(args) == 3 && len(paths) > 1:
+				i, err := strconv.ParseInt(args[2], 10, 64)
+				if err != nil {
+					return err
+				}
+				path = paths[i]
+			case len(args) == 3 && len(paths) == 1:
+				fmt.Println(paths.MustYAML())
+				return fmt.Errorf("passed in an index where only one path exists between chains %s and %s", src, dst)
+			case len(args) == 2 && len(paths) > 1:
+				fmt.Println(paths.MustYAML())
+				return fmt.Errorf("more than one path between %s and %s exists, please specify index", src, dst)
+			case len(args) == 2 && len(paths) == 1:
+				path = paths[0]
+			}
+
+			if err = chains[src].SetPath(path.End(src), relayer.FULLPATH); err != nil {
+				return chains[src].ErrCantSetPath(relayer.FULLPATH, err)
+			}
+
+			if err = chains[dst].SetPath(path.End(dst), relayer.FULLPATH); err != nil {
+				return chains[dst].ErrCantSetPath(relayer.FULLPATH, err)
+			}
+
+			var order chanState.Order
+			if order = chanState.OrderFromString("ORDERED"); order == chanState.NONE {
+				return fmt.Errorf("invalid order passed in %s, expected 'UNORDERED' or 'ORDERED'", args[10])
+			}
+
+			ticker := time.NewTicker(to)
+			for ; true; <-ticker.C {
+				msgs, err := chains[src].CreateChannelStep(chains[dst], order)
+				if err != nil {
+					return err
+				}
+
+				if !msgs.Ready() {
+					break
+				}
+
+				if len(msgs.Src) > 0 {
+					// Submit the transactions to src chain
+					if err = SendAndPrint(msgs.Src, chains[src], cmd); err != nil {
+						return err
+					}
+				}
+
+				if len(msgs.Dst) > 0 {
+					// Submit the transactions to dst chain
+					if err = SendAndPrint(msgs.Dst, chains[dst], cmd); err != nil {
+						return err
+					}
+				}
+			}
 			return nil
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return timeoutFlag(transactionFlags(cmd))
 }
 
 func createChannelStepCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channel-step [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id] [src-channel-id] [dst-channel-id] [src-port-id] [dst-port-id] [ordering]",
 		Short: "create the next step in creating a channel between chains with the passed identifiers",
-		Long:  "FYI: DRAGONS HERE, not tested",
 		Args:  cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
@@ -358,4 +430,183 @@ func createChannelStepCmd() *cobra.Command {
 	}
 
 	return transactionFlags(cmd)
+}
+
+func fullPathCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "full-path [src-chain-id] [dst-chain-id] [index]",
+		Short: "create all primitaves necessary to send packets between two configured chains with a configured path",
+		Long:  "FYI: DRAGONS HERE, not tested",
+		Args:  cobra.RangeArgs(2, 3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			chains, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			to, err := getTimeout(cmd)
+			if err != nil {
+				return err
+			}
+
+			// Find any configured paths between the chains
+			paths, err := config.Paths.PathsFromChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			// Given the number of args and the number of paths,
+			// work on the appropriate path
+			var path relayer.Path
+			switch {
+			case len(args) == 3 && len(paths) > 1:
+				i, err := strconv.ParseInt(args[2], 10, 64)
+				if err != nil {
+					return err
+				}
+				path = paths[i]
+			case len(args) == 3 && len(paths) == 1:
+				fmt.Println(paths.MustYAML())
+				return fmt.Errorf("passed in an index where only one path exists between chains %s and %s", src, dst)
+			case len(args) == 2 && len(paths) > 1:
+				fmt.Println(paths.MustYAML())
+				return fmt.Errorf("more than one path between %s and %s exists, please specify index", src, dst)
+			case len(args) == 2 && len(paths) == 1:
+				path = paths[0]
+			}
+
+			if err = chains[src].SetPath(path.End(src), relayer.FULLPATH); err != nil {
+				return chains[src].ErrCantSetPath(relayer.FULLPATH, err)
+			}
+
+			if err = chains[dst].SetPath(path.End(dst), relayer.FULLPATH); err != nil {
+				return chains[dst].ErrCantSetPath(relayer.FULLPATH, err)
+			}
+
+			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
+			if err != nil {
+				return err
+			}
+
+			srcCs, err := chains[src].QueryClientState()
+			if err != nil {
+				return err
+			}
+
+			logger := log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+
+			if srcCs.ClientState == nil {
+				res, err := chains[src].SendMsg(chains[src].CreateClient(hs[dst]))
+				if err != nil || res.Code != 0 {
+					if err = PrintOutput(res, cmd); err != nil {
+						return err
+					}
+				}
+				logger.Info(fmt.Sprintf("tx.hash=%s", res.TxHash), "chain", src, "action", "create-client")
+			}
+
+			dstCs, err := chains[dst].QueryClientState()
+			if err != nil {
+				return err
+			}
+
+			if dstCs.ClientState == nil {
+				res, err := chains[dst].SendMsg(chains[dst].CreateClient(hs[src]))
+				if err != nil || res.Code != 0 {
+					if err = PrintOutput(res, cmd); err != nil {
+						return err
+					}
+				}
+				logger.Info(fmt.Sprintf("tx.hash=%s", res.TxHash), "chain", dst, "action", "create-client")
+			}
+
+			ticker := time.NewTicker(to)
+			for ; true; <-ticker.C {
+				msgs, err := chains[src].CreateConnectionStep(chains[dst])
+				if err != nil {
+					return err
+				}
+
+				if !msgs.Ready() {
+					break
+				}
+
+				if len(msgs.Src) > 0 {
+					// Submit the transactions to src chain
+					res, err := chains[src].SendMsgs(msgs.Src)
+					if err != nil || res.Code != 0 {
+						if err = PrintOutput(res, cmd); err != nil {
+							return err
+						}
+					}
+					logger.Info(fmt.Sprintf("tx.hash=%s", res.TxHash), "chain", src, "action", getMsgAction(msgs.Src))
+				}
+
+				if len(msgs.Dst) > 0 {
+					// Submit the transactions to dst chain
+					res, err := chains[dst].SendMsgs(msgs.Dst)
+					if err != nil || res.Code != 0 {
+						if err = PrintOutput(res, cmd); err != nil {
+							return err
+						}
+					}
+					logger.Info(fmt.Sprintf("tx.hash=%s", res.TxHash), "chain", dst, "action", getMsgAction(msgs.Dst))
+				}
+			}
+
+			var order chanState.Order
+			if order = chanState.OrderFromString("ORDERED"); order == chanState.NONE {
+				return fmt.Errorf("invalid order passed in, expected 'UNORDERED' or 'ORDERED'")
+			}
+
+			ticker = time.NewTicker(to)
+			for ; true; <-ticker.C {
+				msgs, err := chains[src].CreateChannelStep(chains[dst], order)
+				if err != nil {
+					return err
+				}
+
+				if !msgs.Ready() {
+					break
+				}
+
+				if len(msgs.Src) > 0 {
+					// Submit the transactions to src chain
+					res, err := chains[src].SendMsgs(msgs.Src)
+					if err != nil || res.Code != 0 {
+						if err = PrintOutput(res, cmd); err != nil {
+							return err
+						}
+					}
+					logger.Info(fmt.Sprintf("tx.hash=%s", res.TxHash), "chain", src, "action", getMsgAction(msgs.Src))
+				}
+
+				if len(msgs.Dst) > 0 {
+					// Submit the transactions to dst chain
+					res, err := chains[dst].SendMsgs(msgs.Dst)
+					if err != nil || res.Code != 0 {
+						if err = PrintOutput(res, cmd); err != nil {
+							return err
+						}
+					}
+					logger.Info(fmt.Sprintf("tx.hash=%s", res.TxHash), "chain", dst, "action", getMsgAction(msgs.Dst))
+				}
+			}
+			return nil
+		},
+	}
+
+	return timeoutFlag(transactionFlags(cmd))
+}
+
+func getMsgAction(msgs []sdk.Msg) string {
+	switch len(msgs) {
+	case 1:
+		return msgs[0].Type()
+	case 2:
+		return msgs[1].Type()
+	default:
+		return ""
+	}
 }
