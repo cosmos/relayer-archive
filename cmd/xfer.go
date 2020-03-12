@@ -53,12 +53,12 @@ func xfer() *cobra.Command {
 			}
 
 			// MsgTransfer will call SendPacket on src chain
-			txs := []sdk.Msg{
-				chains[src].MsgTransfer(chains[dst], dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source),
+			txs := relayer.RelayMsgs{
+				Src: []sdk.Msg{chains[src].MsgTransfer(chains[dst], dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source)},
+				Dst: []sdk.Msg{},
 			}
 
-			err = SendAndPrint(txs, chains[src], cmd)
-			if err != nil {
+			if err = txs.Send(chains[src], chains[dst], cmd); err != nil {
 				return err
 			}
 
@@ -97,28 +97,31 @@ func xfer() *cobra.Command {
 			// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
 			// part of the command. In a real relayer, this would be a separate command that retrieved the packet
 			// information from an indexing node
-			txs = []sdk.Msg{
-				chains[src].UpdateClient(hs[dst]),
-				chains[src].MsgRecvPacket(
-					chains[dst],
-					seqRecv.NextSequenceRecv,
-					xferPacket,
-					chanTypes.NewPacketResponse(
-						chains[dst].PathEnd.PortID,
-						chains[dst].PathEnd.ChannelID,
-						seqSend,
-						chains[src].NewPacket(
-							chains[dst],
+			txs = relayer.RelayMsgs{
+				Dst: []sdk.Msg{
+					chains[dst].UpdateClient(hs[src]),
+					chains[dst].MsgRecvPacket(
+						chains[src],
+						seqRecv.NextSequenceRecv,
+						xferPacket,
+						chanTypes.NewPacketResponse(
+							chains[src].PathEnd.PortID,
+							chains[src].PathEnd.ChannelID,
 							seqSend,
-							xferPacket,
+							chains[dst].NewPacket(
+								chains[src],
+								seqSend,
+								xferPacket,
+							),
+							srcCommitRes.Proof.Proof,
+							int64(srcCommitRes.ProofHeight),
 						),
-						srcCommitRes.Proof.Proof,
-						int64(srcCommitRes.ProofHeight),
 					),
-				),
+				},
+				Src: []sdk.Msg{},
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return txs.Send(chains[src], chains[dst], cmd)
 		},
 	}
 	return transactionFlags(cmd)
