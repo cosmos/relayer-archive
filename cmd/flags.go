@@ -63,7 +63,7 @@ func addressFlag(cmd *cobra.Command) *cobra.Command {
 }
 
 func timeoutFlag(cmd *cobra.Command) *cobra.Command {
-	cmd.Flags().StringP(flagTimeout, "o", "8s", "timeout between relayer runs")
+	cmd.Flags().StringP(flagTimeout, "o", "10s", "timeout between relayer runs")
 	viper.BindPFlag(flagTimeout, cmd.Flags().Lookup(flagTimeout))
 	return cmd
 }

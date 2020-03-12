@@ -4,16 +4,60 @@ import (
 	"fmt"
 
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
+	"gopkg.in/yaml.v2"
 )
 
 // Paths represent connection paths between chains
 type Paths []Path
 
+// MustYAML returns the yaml string representation of the Paths
+func (p Paths) MustYAML() string {
+	out, err := yaml.Marshal(p)
+	if err != nil {
+		panic(err)
+	}
+	return string(out)
+}
+
+// SetIndices sets the index of the path
+func (p Paths) SetIndices() {
+	for i, path := range p {
+		path.Index = i
+	}
+}
+
+// PathsFromChains returns a path from the config between two chains
+func (p Paths) PathsFromChains(src, dst string) (Paths, error) {
+	p.SetIndices()
+	var out Paths
+	for _, pth := range p {
+		if (pth.Dst.ChainID == src || pth.Src.ChainID == src) && (pth.Dst.ChainID == dst || pth.Src.ChainID == dst) {
+			out = append(out, pth)
+		}
+	}
+	if len(out) == 0 {
+		return Paths{}, fmt.Errorf("failed to find path in config between chains %s and %s", src, dst)
+	}
+	return out, nil
+}
+
 // Path represents a pair of chains and the identifiers needed to
 // relay over them
 type Path struct {
-	Src PathEnd `yaml:"src" json:"src"`
-	Dst PathEnd `yaml:"dst" json:"dst"`
+	Src   *PathEnd `yaml:"src" json:"src"`
+	Dst   *PathEnd `yaml:"dst" json:"dst"`
+	Index int      `yaml:"index,omitempty" json:"index,omitempty"`
+}
+
+// End returns the proper end given a chainID
+func (p Path) End(chainID string) *PathEnd {
+	if p.Dst.ChainID == chainID {
+		return p.Dst
+	}
+	if p.Src.ChainID == chainID {
+		return p.Src
+	}
+	return &PathEnd{}
 }
 
 func (p Path) String() string {
@@ -89,7 +133,7 @@ func (p pathType) String() string {
 
 // PathClient used to set the path for client creation commands
 func (c *Chain) PathClient(clientID string) error {
-	return c.setPath(&PathEnd{
+	return c.SetPath(&PathEnd{
 		ChainID:  c.ChainID,
 		ClientID: clientID,
 	}, CLNTPATH)
@@ -97,7 +141,7 @@ func (c *Chain) PathClient(clientID string) error {
 
 // PathConnection used to set the path for the connection creation commands
 func (c *Chain) PathConnection(clientID, connectionID string) error {
-	return c.setPath(&PathEnd{
+	return c.SetPath(&PathEnd{
 		ChainID:      c.ChainID,
 		ClientID:     clientID,
 		ConnectionID: connectionID,
@@ -106,7 +150,7 @@ func (c *Chain) PathConnection(clientID, connectionID string) error {
 
 // PathChannel used to set the path for the channel creation commands
 func (c *Chain) PathChannel(channelID, portID string) error {
-	return c.setPath(&PathEnd{
+	return c.SetPath(&PathEnd{
 		ChainID:   c.ChainID,
 		ChannelID: channelID,
 		PortID:    portID,
@@ -115,7 +159,7 @@ func (c *Chain) PathChannel(channelID, portID string) error {
 
 // PathChannelClient used to set the path for channel and client commands
 func (c *Chain) PathChannelClient(clientID, channelID, portID string) error {
-	return c.setPath(&PathEnd{
+	return c.SetPath(&PathEnd{
 		ChainID:   c.ChainID,
 		ClientID:  clientID,
 		ChannelID: channelID,
@@ -125,7 +169,7 @@ func (c *Chain) PathChannelClient(clientID, channelID, portID string) error {
 
 // FullPath sets all of the properties on the path
 func (c *Chain) FullPath(clientID, connectionID, channelID, portID string) error {
-	return c.setPath(&PathEnd{
+	return c.SetPath(&PathEnd{
 		ChainID:      c.ChainID,
 		ClientID:     clientID,
 		ConnectionID: connectionID,
@@ -152,8 +196,8 @@ func PathsSet(chains ...*Chain) bool {
 	return true
 }
 
-// setPath sets the path and validates the identifiers
-func (c *Chain) setPath(p *PathEnd, t pathType) error {
+// SetPath sets the path and validates the identifiers
+func (c *Chain) SetPath(p *PathEnd, t pathType) error {
 	err := p.Validate(t)
 	if err != nil {
 		return err

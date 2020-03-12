@@ -1,21 +1,22 @@
 package relayer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
 	"time"
 
-	"github.com/cosmos/cosmos-sdk/client/context"
+	sdkCtx "github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	aminocodec "github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/tendermint/tendermint/libs/log"
-
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 )
 
 // NewChain returns a new instance of Chain
@@ -119,7 +120,16 @@ func (c *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 
 // BroadcastTxCommit takes the marshaled transaction bytes and broadcasts them
 func (c *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
-	return context.CLIContext{Client: c.Client}.BroadcastTxCommit(txBytes)
+	res, err := sdkCtx.CLIContext{Client: c.Client}.BroadcastTxCommit(txBytes)
+	// NOTE: The raw is a recreation of the log and unused in this context. It is also
+	// quite noisy so we remove it to simplify the output
+	res.RawLog = ""
+	return res, err
+}
+
+// Subscribe returns channel of events given a query
+func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, error) {
+	return c.Client.Subscribe(context.Background(), c.ChainID, query)
 }
 
 // KeysDir returns the path to the keys for this chain

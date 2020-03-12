@@ -10,7 +10,7 @@ chains:
   port-id: bank
   default-denom: stake
   gas: 200000
-  gas-adjustement: 1.3
+  gas-adjustement: "1.3"
   gas-prices: "0.025stake"
   trusting-period: 336h
 - chain-id: ibc1
@@ -19,7 +19,7 @@ chains:
   key: testkey
   default-denom: stake
   gas: 200000
-  gas-adjustement: 1.3
+  gas-adjustement: "1.3"
   gas-prices: "0.025stake"
   trusting-period: 336h
 paths:
@@ -30,7 +30,7 @@ paths:
     channel-id: ibconechan
     port-id: bank
   dst:
-    chain-id: ibc0
+    chain-id: ibc1
     client-id: ibczeroclient
     connection-id: ibczeroconn
     channel-id: ibczerochan

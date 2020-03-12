@@ -216,7 +216,7 @@ func queryConnections() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connections [chain-id]",
 		Short: "Query for all connections on a given chain",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
 			if err != nil {
@@ -335,7 +335,7 @@ func queryChannels() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channels [chain-id]",
 		Short: "Query for all channels on a given chain",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
 			if err != nil {

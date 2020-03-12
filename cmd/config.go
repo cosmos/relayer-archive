@@ -30,9 +30,9 @@ import (
 
 // Config represents the config file for the relayer
 type Config struct {
-	Global GlobalConfig   `yaml:"global" json:"global"`
-	Chains []ChainConfig  `yaml:"chains" json:"chains"`
-	Paths  []relayer.Path `yaml:"paths" json:"paths"`
+	Global GlobalConfig  `yaml:"global" json:"global"`
+	Chains ChainConfigs  `yaml:"chains" json:"chains"`
+	Paths  relayer.Paths `yaml:"paths" json:"paths"`
 
 	c relayer.Chains
 }
@@ -42,6 +42,48 @@ type GlobalConfig struct {
 	Strategy      string `yaml:"strategy" json:"strategy"`
 	Timeout       string `yaml:"timeout" json:"timeout"`
 	LiteCacheSize int    `yaml:"lite-cache-size" json:"lite-cache-size"`
+}
+
+// NewDefaultGlobalConfig returns a global config with defaults set
+func NewDefaultGlobalConfig() GlobalConfig {
+	return GlobalConfig{
+		Strategy:      "naieve",
+		Timeout:       "10s",
+		LiteCacheSize: 20,
+	}
+}
+
+// ChainConfigs is a collection of ChainConfig
+type ChainConfigs []ChainConfig
+
+// AddChain adds an additional chain to the config
+func (c *Config) AddChain(chain ChainConfig) *Config {
+	c.Chains = append(c.Chains, chain)
+	return c
+}
+
+// DeleteChain removes a chain from the config
+func (c *Config) DeleteChain(chain string) *Config {
+	var set ChainConfigs
+	for _, ch := range c.Chains {
+		if ch.ChainID != chain {
+			set = append(set, ch)
+		}
+	}
+	c.Chains = set
+	return c
+}
+
+// AddPath adds a path to the config file
+func (c *Config) AddPath(path relayer.Path) *Config {
+	c.Paths = append(c.Paths, path)
+	return c
+}
+
+// DeletePath removes a path at index i
+func (c *Config) DeletePath(i int) *Config {
+	c.Paths = append(c.Paths[:i], c.Paths[i+1:]...)
+	return c
 }
 
 // ChainConfig describes the config necessary for an individual chain
@@ -114,4 +156,39 @@ func initConfig(cmd *cobra.Command) error {
 		}
 	}
 	return nil
+}
+
+func overWriteConfig(cmd *cobra.Command, cfg *Config) error {
+	home, err := cmd.Flags().GetString(flags.FlagHome)
+	if err != nil {
+		return err
+	}
+
+	cfgPath := path.Join(home, "config", "config.yaml")
+	if _, err = os.Stat(cfgPath); err == nil {
+		viper.SetConfigFile(cfgPath)
+		if err = viper.ReadInConfig(); err == nil {
+			// ensure setChains runs properly
+			err = setChains(config, home)
+			if err != nil {
+				return err
+			}
+
+			// marshal the new config
+			out, err := yaml.Marshal(cfg)
+			if err != nil {
+				return err
+			}
+
+			// overwrite the config file
+			err = ioutil.WriteFile(viper.ConfigFileUsed(), out, 0666)
+			if err != nil {
+				return err
+			}
+
+			// set the global variable
+			config = cfg
+		}
+	}
+	return err
 }

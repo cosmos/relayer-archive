@@ -96,41 +96,41 @@ echo "Creating client ibconeclient for ibc1 on ibc0 and ibconzeroclient for ibc0
 sleep 5
 relayer --home $RLY_CONF tx client $c0 $c1 $c0cl
 relayer --home $RLY_CONF tx client $c1 $c0 $c1cl
-echo
-echo "Create connection raw"
-sleep 5
-relayer --home $RLY_CONF tx raw conn-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn
-sleep 5
-relayer --home $RLY_CONF tx raw conn-try $c1 $c0 $c1cl $c0cl $c1conn $c0conn
-sleep 5
-relayer --home $RLY_CONF tx raw conn-ack $c0 $c1 $c0cl $c1cl $c0conn $c1conn
-sleep 5
-relayer --home $RLY_CONF tx raw conn-confirm $c1 $c0 $c1cl $c0cl $c1conn $c0conn
-echo
-echo "Create channel raw"
-sleep 5
-relayer --home $RLY_CONF tx raw chan-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn $c0chan $c1chan $c0port $c1port $ordering
-sleep 5
-relayer --home $RLY_CONF tx raw chan-try $c1 $c0 $c1cl $c1conn $c1chan $c0chan $c1port $c0port
-sleep 5
-relayer --home $RLY_CONF tx raw chan-ack $c0 $c1 $c0cl $c0chan $c1chan $c0port $c1port
-sleep 5
-relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port
-echo
-echo "Command to test transfer"
-echo "relayer --home $RLY_CONF tx raw xfer $c0 $c1 $c0chan $c1chan $c0port $c1port 10stake $(go run main.go --home $RLY_CONF keys show $c1 testkey -a)"
-echo
-echo "IDENTIFIERS FOR IBC PRIMATIVES:"
-echo "chain0 ChainID: $c0"
-echo "chain0 ClntID:  $c0cl"
-echo "chain0 ConnID:  $c0conn"
-echo "chain0 ChanID:  $c0chan"
-echo "chain0 PortID:  $c0port"
-echo
-echo "chain1 ChainID: $c1"
-echo "chain1 ClntID:  $c1cl"
-echo "chain1 ConnID:  $c1conn"
-echo "chain1 ChanID:  $c1chan"
-echo "chain1 PortID:  $c1port"
-echo 
-echo "export RLY=$RLY_CONF"
+# echo
+# echo "Create connection raw"
+# sleep 5
+# relayer --home $RLY_CONF tx raw conn-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn
+# sleep 5
+# relayer --home $RLY_CONF tx raw conn-try $c1 $c0 $c1cl $c0cl $c1conn $c0conn
+# sleep 5
+# relayer --home $RLY_CONF tx raw conn-ack $c0 $c1 $c0cl $c1cl $c0conn $c1conn
+# sleep 5
+# relayer --home $RLY_CONF tx raw conn-confirm $c1 $c0 $c1cl $c0cl $c1conn $c0conn
+# echo
+# echo "Create channel raw"
+# sleep 5
+# relayer --home $RLY_CONF tx raw chan-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn $c0chan $c1chan $c0port $c1port $ordering
+# sleep 5
+# relayer --home $RLY_CONF tx raw chan-try $c1 $c0 $c1cl $c1conn $c1chan $c0chan $c1port $c0port
+# sleep 5
+# relayer --home $RLY_CONF tx raw chan-ack $c0 $c1 $c0cl $c0chan $c1chan $c0port $c1port
+# sleep 5
+# relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port
+# echo
+# echo "Command to test transfer"
+# echo "relayer --home $RLY_CONF tx raw xfer $c0 $c1 $c0chan $c1chan $c0port $c1port 10stake $(go run main.go --home $RLY_CONF keys show $c1 testkey -a)"
+# echo
+# echo "IDENTIFIERS FOR IBC PRIMATIVES:"
+# echo "chain0 ChainID: $c0"
+# echo "chain0 ClntID:  $c0cl"
+# echo "chain0 ConnID:  $c0conn"
+# echo "chain0 ChanID:  $c0chan"
+# echo "chain0 PortID:  $c0port"
+# echo
+# echo "chain1 ChainID: $c1"
+# echo "chain1 ClntID:  $c1cl"
+# echo "chain1 ConnID:  $c1conn"
+# echo "chain1 ChanID:  $c1chan"
+# echo "chain1 PortID:  $c1port"
+# echo 
+# echo "export RLY=$RLY_CONF"

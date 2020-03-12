@@ -13,8 +13,13 @@ import (
 ////  RAW IBC TRANSACTION COMMANDS  ////
 ////////////////////////////////////////
 
-func init() {
-	rawCmds := []*cobra.Command{
+func rawTransactionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "raw",
+		Short: "raw connection and channel steps",
+	}
+
+	cmd.AddCommand(
 		connInit(),
 		connTry(),
 		connAck(),
@@ -28,14 +33,9 @@ func init() {
 		xfersend(),
 		xferrecv(),
 		xfer(),
-	}
+	)
 
-	rawTransactionCmd.AddCommand(rawCmds...)
-}
-
-var rawTransactionCmd = &cobra.Command{
-	Use:   "raw",
-	Short: "raw connection and channel steps",
+	return cmd
 }
 
 func connInit() *cobra.Command {

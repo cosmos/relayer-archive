@@ -17,6 +17,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -25,8 +26,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	txCmds := []*cobra.Command{
+// transactionCmd represents the tx command
+func transactionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "transactions",
+		Aliases: []string{"tx"},
+		Short:   "IBC Transaction Commands, UNDER CONSTRUCTION",
+	}
+
+	cmd.AddCommand(
 		createClientCmd(),
 		createClientsCmd(),
 		createConnectionCmd(),
@@ -34,17 +42,10 @@ func init() {
 		createChannelCmd(),
 		createChannelStepCmd(),
 		updateClientCmd(),
-		rawTransactionCmd,
-	}
+		rawTransactionCmd(),
+	)
 
-	transactionCmd.AddCommand(txCmds...)
-}
-
-// transactionCmd represents the tx command
-var transactionCmd = &cobra.Command{
-	Use:     "transactions",
-	Aliases: []string{"tx"},
-	Short:   "IBC Transaction Commands, UNDER CONSTRUCTION",
+	return cmd
 }
 
 func updateClientCmd() *cobra.Command {
@@ -144,10 +145,10 @@ func createClientsCmd() *cobra.Command {
 
 func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connection [src-chain-id] [dst-chain-id] [src-client-id] [dst-client-id] [src-connection-id] [dst-connection-id]",
-		Short: "create a connection between chains, passing in identifiers",
-		Long:  "Working, but not smoothly",
-		Args:  cobra.ExactArgs(6),
+		Use:   "connection [src-chain-id] [dst-chain-id] [index]",
+		Short: "create a connection between two configured chains with a configured path",
+		Long:  "This command is meant to be used to repair or create a connection between two chains with a configured path in the config file",
+		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.c.GetChains(src, dst)
@@ -155,16 +156,42 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
+			// Find any configured paths between the chains
+			paths, err := config.Paths.PathsFromChains(src, dst)
+			if err != nil {
+				return err
+			}
+
+			// Given the number of args and the number of paths,
+			// work on the appropriate path
+			var path relayer.Path
+			switch {
+			case len(args) == 3 && len(paths) > 1:
+				i, err := strconv.ParseInt(args[2], 10, 64)
+				if err != nil {
+					return err
+				}
+				path = paths[i]
+			case len(args) == 3 && len(paths) == 1:
+				fmt.Println(paths.MustYAML())
+				return fmt.Errorf("passed in index where only one path exists between chains %s and %s", src, dst)
+			case len(args) == 2 && len(paths) > 1:
+				fmt.Println(paths.MustYAML())
+				return fmt.Errorf("more than one path between %s and %s exists, please try again with index", src, dst)
+			case len(args) == 2 && len(paths) == 1:
+				path = paths[0]
+			}
+
 			to, err := getTimeout(cmd)
 			if err != nil {
 				return err
 			}
 
-			if err = chains[src].PathConnection(args[2], args[4]); err != nil {
+			if err = chains[src].SetPath(path.End(src), relayer.CONNPATH); err != nil {
 				return chains[src].ErrCantSetPath(relayer.CONNPATH, err)
 			}
 
-			if err = chains[dst].PathConnection(args[3], args[5]); err != nil {
+			if err = chains[dst].SetPath(path.End(dst), relayer.CONNPATH); err != nil {
 				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
 			}
 
