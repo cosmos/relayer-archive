@@ -19,18 +19,15 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
+	"path"
 	"strings"
-	"time"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
 	"github.com/cosmos/cosmos-sdk/simapp"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	"gopkg.in/yaml.v2"
 )
 
@@ -80,6 +77,19 @@ func configCmd() *cobra.Command {
 		Use:   "config",
 		Short: "Returns configuration data",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			home, err := cmd.Flags().GetString(flags.FlagHome)
+			if err != nil {
+				return err
+			}
+
+			cfgPath := path.Join(home, "config", "config.yaml")
+			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+				if _, err := os.Stat(home); os.IsNotExist(err) {
+					return fmt.Errorf("Home path does not exist: %s", home)
+				}
+				return fmt.Errorf("Config does not exist: %s", cfgPath)
+			}
+
 			out, err := yaml.Marshal(config)
 			if err != nil {
 				return err
@@ -93,129 +103,12 @@ func configCmd() *cobra.Command {
 	return cmd
 }
 
-func chainsCmd() *cobra.Command {
+func initCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "chains",
-		Short: "commands to configure chains",
-	}
-
-	cmd.AddCommand(
-		chainsListCmd(),
-		chainsDeleteCmd(),
-		chainsAddCmd(),
-	)
-
-	return cmd
-}
-
-func chainsDeleteCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "delete [chain-id]",
-		Short: "Returns chain configuration data",
-		Args:  cobra.ExactArgs(1),
+		Use:   "init",
+		Short: "Creates a default home directory at path defined by --home",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return overWriteConfig(cmd, config.DeleteChain(args[0]))
-		},
-	}
-	return cmd
-}
-
-func chainsListCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Returns chain configuration data",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out, err := yaml.Marshal(config.Chains)
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(out))
 			return nil
-		},
-	}
-	return cmd
-}
-
-func chainsAddCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Reads in a series of user input and generates a new chain in the config",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("ChainID (i.e. cosmoshub2):")
-			cid, err := readStdin()
-			if err != nil {
-				return err
-			}
-
-			fmt.Println("Default Key (i.e. testkey):")
-			key, err := readStdin()
-			if err != nil {
-				return err
-			}
-
-			fmt.Println("RPC Address (i.e. http://localhost:26657):")
-			rpc, err := readStdin()
-			if err != nil {
-				return err
-			}
-
-			if _, err = rpcclient.NewHTTP(rpc, "/websocket"); err != nil {
-				return err
-			}
-
-			fmt.Println("Account Prefix (i.e. cosmos):")
-			accPrefix, err := readStdin()
-			if err != nil {
-				return err
-			}
-
-			fmt.Println("Gas (i.e. 200000):")
-			g, err := readStdin()
-			if err != nil {
-				return err
-			}
-
-			gas, err := strconv.ParseInt(g, 10, 64)
-			if err != nil {
-				return err
-			}
-
-			fmt.Println("gas-prices (i.e. 0.025stake):")
-			gasPrices, err := readStdin()
-			if err != nil {
-				return err
-			}
-
-			if _, err = sdk.ParseDecCoins(gasPrices); err != nil {
-				return err
-			}
-
-			fmt.Println("Default Denom (i.e. stake):")
-			denom, err := readStdin()
-			if err != nil {
-				return err
-			}
-
-			fmt.Println("Trusting Period (i.e. 336h)")
-			trustingPeriod, err := readStdin()
-			if err != nil {
-				return err
-			}
-
-			if _, err = time.ParseDuration(trustingPeriod); err != nil {
-				return err
-			}
-
-			return overWriteConfig(cmd, config.AddChain(ChainConfig{
-				Key:            key,
-				ChainID:        cid,
-				RPCAddr:        rpc,
-				AccountPrefix:  accPrefix,
-				Gas:            uint64(gas),
-				GasPrices:      gasPrices,
-				DefaultDenom:   denom,
-				TrustingPeriod: trustingPeriod,
-			}))
 		},
 	}
 	return cmd
