@@ -134,128 +134,138 @@ func chainsAddCmd() *cobra.Command {
 			// 	}
 			// }
 
-			if err := fileInputAdd(cmd); err != nil {
+			var out *Config
+			file, err := cmd.Flags().GetString(flagFile)
+			if err != nil {
 				return err
 			}
 
-			return userInputAdd(cmd)
+			if file != "" {
+				if out, err = fileInputAdd(file); err != nil {
+					return err
+				}
+			} else {
+				if out, err = userInputAdd(cmd); err != nil {
+					return err
+				}
+			}
+
+			if err = setChains(out, file); err != nil {
+				return err
+			}
+
+			return overWriteConfig(cmd, out)
 		},
 	}
 
 	return fileFlag(cmd)
 }
 
-func fileInputAdd(cmd *cobra.Command) (err error) {
-	file, err := cmd.Flags().GetString(flagFile)
-	if err != nil {
-		return err
-	}
-
+func fileInputAdd(file string) (cfg *Config, err error) {
 	// If the user passes in a file, attempt to read the chain config from that file
-	if file != "" {
-		c := ChainConfig{}
-		if _, err := os.Stat(file); err != nil {
-			return err
-		}
-
-		byt, err := ioutil.ReadFile(file)
-		if err != nil {
-			return err
-		}
-
-		if err = json.Unmarshal(byt, &c); err != nil {
-			return err
-		}
-
-		cfg := config.AddChain(c)
-
-		// validate newly added chain
-		if err = setChains(cfg, file); err != nil {
-			return err
-		}
-
-		return overWriteConfig(cmd, cfg)
+	c := ChainConfig{}
+	if _, err := os.Stat(file); err != nil {
+		return nil, err
 	}
 
-	return nil
+	byt, err := ioutil.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = json.Unmarshal(byt, &c); err != nil {
+		return nil, err
+	}
+
+	cfg, err = config.AddChain(c)
+	if err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
 }
 
-func userInputAdd(cmd *cobra.Command) (err error) {
+func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 	c := ChainConfig{}
 
 	var value string
 	fmt.Println("ChainID (i.e. cosmoshub2):")
 	if value, err = readStdin(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if c, err = c.Update("chain-id", value); err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("Default Key (i.e. testkey):")
 	if value, err = readStdin(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if c, err = c.Update("key", value); err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("RPC Address (i.e. http://localhost:26657):")
 	if value, err = readStdin(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if c, err = c.Update("rpc-addr", value); err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("Account Prefix (i.e. cosmos):")
 	if value, err = readStdin(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if c, err = c.Update("account-prefix", value); err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("Gas (i.e. 200000):")
 	if value, err = readStdin(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if c, err = c.Update("gas", value); err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("Gas Prices (i.e. 0.025stake):")
 	if value, err = readStdin(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if c, err = c.Update("gas-prices", value); err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("Default Denom (i.e. stake):")
 	if value, err = readStdin(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if c, err = c.Update("default-denom", value); err != nil {
-		return err
+		return nil, err
 	}
 
 	fmt.Println("Trusting Period (i.e. 336h)")
 	if value, err = readStdin(); err != nil {
-		return err
+		return nil, err
 	}
 
 	if c, err = c.Update("trusting-period", value); err != nil {
-		return err
+		return nil, err
+	}
+
+	out, err := config.AddChain(c)
+	if err != nil {
+		return nil, err
 	}
 
 	// TODO: ensure that there are no other configured chains with the same ID
-	return overWriteConfig(cmd, config.AddChain(c))
+	return out, nil
 }

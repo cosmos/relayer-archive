@@ -95,9 +95,16 @@ func configInitCmd() *cobra.Command {
 			// TODO: fix case where --home dir doesn't exist
 			// If the config doesn't exist...
 			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
-				// And the home folder doesn't exist...
+				// And the config folder doesn't exist...
 				if _, err := os.Stat(cfgDir); os.IsNotExist(err) {
-					// If the home/config folder doesn't exist...
+					// And the home folder doesn't exist
+					if _, err := os.Stat(home); os.IsNotExist(err) {
+						// Create the home folder
+						if err = os.Mkdir(home, os.ModePerm); err != nil {
+							return err
+						}
+					}
+					// Create the home config folder
 					if err = os.Mkdir(cfgDir, os.ModePerm); err != nil {
 						return err
 					}
@@ -184,9 +191,12 @@ func (c ChainConfigs) Get(cid string) *ChainConfig {
 }
 
 // AddChain adds an additional chain to the config
-func (c *Config) AddChain(chain ChainConfig) *Config {
+func (c *Config) AddChain(chain ChainConfig) (*Config, error) {
+	if c.Chains.Get(chain.ChainID) != nil {
+		return nil, fmt.Errorf("chain with ID %s already exists in config", chain.ChainID)
+	}
 	c.Chains = append(c.Chains, chain)
-	return c
+	return c, nil
 }
 
 // DeleteChain removes a chain from the config
@@ -202,9 +212,12 @@ func (c *Config) DeleteChain(chain string) *Config {
 }
 
 // AddPath adds a path to the config file
-func (c *Config) AddPath(path relayer.Path) *Config {
+func (c *Config) AddPath(path relayer.Path) (*Config, error) {
+	if c.Paths.Duplicate(path) {
+		return nil, fmt.Errorf("an equivelent path exists in the config")
+	}
 	c.Paths = append(c.Paths, path)
-	return c
+	return c, nil
 }
 
 // DeletePath removes a path at index i

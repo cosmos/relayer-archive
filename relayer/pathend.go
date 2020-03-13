@@ -10,6 +10,16 @@ import (
 // Paths represent connection paths between chains
 type Paths []Path
 
+// Duplicate returns true if there is a duplicate path in the array
+func (p Paths) Duplicate(path Path) bool {
+	for _, pth := range p {
+		if path.Equal(pth) {
+			return true
+		}
+	}
+	return false
+}
+
 // MustYAML returns the yaml string representation of the Paths
 func (p Paths) MustYAML() string {
 	out, err := yaml.Marshal(p)
@@ -62,6 +72,14 @@ type Path struct {
 	Index int      `yaml:"index,omitempty" json:"index,omitempty"`
 }
 
+// Equal returns true if the path ends are equivelent, false otherwise
+func (p Path) Equal(path Path) bool {
+	if p.Src.Equal(path.Src) || p.Src.Equal(path.Dst) && (p.Dst.Equal(path.Src) || p.Dst.Equal(path.Dst)) {
+		return true
+	}
+	return false
+}
+
 // End returns the proper end given a chainID
 func (p Path) End(chainID string) *PathEnd {
 	if p.Dst.ChainID == chainID {
@@ -86,6 +104,17 @@ type PathEnd struct {
 	ChannelID    string `yaml:"channel-id,omitempty" json:"channel-id,omitempty"`
 	PortID       string `yaml:"port-id,omitempty" json:"port-id,omitempty"`
 }
+
+// Equal returns true if both path ends are equivelent, false otherwise
+func (p *PathEnd) Equal(path *PathEnd) bool {
+	if p.ChainID == path.ChainID && p.ClientID == path.ClientID && p.ConnectionID == path.ConnectionID && p.PortID == path.PortID && p.ChannelID == path.ChannelID {
+		return true
+	}
+	return false
+}
+
+// TODO: add Order chanTypes.Order as a property and wire it up in validation
+// as well as in the transaction commands
 
 // Vclient validates the client identifer in the path
 func (p *PathEnd) Vclient() error {

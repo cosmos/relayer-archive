@@ -4,7 +4,12 @@ GAIA_DIR="$GOPATH/src/github.com/cosmos/gaia"
 RELAYER_DIR="$GOPATH/src/github.com/cosmos/relayer"
 GAIA_BRANCH=ibc-alpha
 GAIA_CONF=$(mktemp -d)
-RLY_CONF=$(mktemp -d)
+
+read -p "two-chains.sh will delete your ~/.relayer folder. Do you wish to continue? (y/n): " -n 1 -r
+if [[ ! $REPLY =~ ^[Yy]$ ]]
+then
+    exit 1
+fi
 
 sleep 1
 
@@ -22,14 +27,17 @@ echo "Building Relayer..."
 cd $RELAYER_DIR
 go build -o $GOBIN/relayer main.go
 
+echo "Generating relayer configurations..."
+rm -rf $HOME/.relayer
+relayer config init
+relayer chains add -f demo/ibc0.json
+relayer chains add -f demo/ibc1.json
+relayer paths add ibc0 ibc1 -f demo/path.json
+
 echo "Generating gaia configurations..."
 cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets
 echo -e "\n" | gaiad testnet -o ibc0 --v 1 --chain-id ibc0 --node-dir-prefix n --keyring-backend test &> /dev/null
 echo -e "\n" | gaiad testnet -o ibc1 --v 1 --chain-id ibc1 --node-dir-prefix n --keyring-backend test &> /dev/null
-
-echo "Generating relayer configurations..."
-mkdir $RLY_CONF/config
-cp $RELAYER_DIR/two-chains.yaml $RLY_CONF/config/config.yaml
 
 if [ "$(uname)" = "Linux" ]; then
   sed -i 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
@@ -60,9 +68,8 @@ gaiad --home ibc1/n0/gaiad start --pruning=nothing > ibc1.log 2>&1 &
 # gaiad --home ibc0/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc0.log 2>&1 &
 # gaiad --home ibc1/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc1.log 2>&1 & 
 
-echo "Set the following env to make working with the running chains easier:"
+echo "Set the following env to use gaiacli with the running chains:"
 echo 
-echo "export RLY=$RLY_CONF"
 echo "export GAIA=$GAIA_CONF"
 echo
 echo "Key Seeds for importing into gaiacli or relayer:"
@@ -72,14 +79,14 @@ echo "  ibc0 -> $SEED0"
 echo "  ibc1 -> $SEED1"
 echo
 echo "NOTE: Below are account addresses for each chain. They are also validator addresses:"
-echo "  ibc0 address: $(relayer --home $RLY_CONF keys restore ibc0 testkey "$SEED0" -a)"
-echo "  ibc1 address: $(relayer --home $RLY_CONF keys restore ibc1 testkey "$SEED1" -a)"
+echo "  ibc0 address: $(relayer keys restore ibc0 testkey "$SEED0" -a)"
+echo "  ibc1 address: $(relayer keys restore ibc1 testkey "$SEED1" -a)"
 echo
 echo "Creating configured path between ibc0 and ibc1..."
 sleep 8
-relayer --home $RLY_CONF lite init ibc0 -f
-relayer --home $RLY_CONF lite init ibc1 -f
+relayer lite init ibc0 -f
+relayer lite init ibc1 -f
 sleep 5
-relayer --home $RLY_CONF tx full-path ibc0 ibc1
+relayer tx full-path ibc0 ibc1
 echo
 echo "Ready to send msgs..."
