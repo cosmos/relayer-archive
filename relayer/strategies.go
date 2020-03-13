@@ -52,10 +52,10 @@ func (r *RelayMsgs) Send(src, dst *Chain, cmd *cobra.Command) error {
 		// Submit the transactions to src chain
 		res, err := src.SendMsgs(r.Src)
 		if err != nil || res.Code != 0 {
-			src.logger.Info(fmt.Sprintf("FAILED  [%s] <- %s %s(%s)", src.ChainID, getMsgAction(r.Src), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
+			src.LogFailedTx(res, r.Src)
 		} else {
 			// NOTE: Add more data to this such as identifiers
-			src.logger.Info(fmt.Sprintf("SUCCESS [%s] <- %s", src.ChainID, getMsgAction(r.Src)))
+			src.LogSuccessTx(res, r.Src)
 		}
 	}
 
@@ -63,14 +63,24 @@ func (r *RelayMsgs) Send(src, dst *Chain, cmd *cobra.Command) error {
 		// Submit the transactions to dst chain
 		res, err := dst.SendMsgs(r.Dst)
 		if err != nil || res.Code != 0 {
-			dst.logger.Info(fmt.Sprintf("FAILED  [%s] <- %s %s(%s)", dst.ChainID, getMsgAction(r.Dst), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
+			dst.LogFailedTx(res, r.Dst)
 		} else {
 			// NOTE: Add more data to this such as identifiers
-			dst.logger.Info(fmt.Sprintf("SUCCESS [%s] <- %s", dst.ChainID, getMsgAction(r.Dst)))
+			dst.LogSuccessTx(res, r.Dst)
 		}
 	}
 
 	return nil
+}
+
+// LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
+func (c *Chain) LogFailedTx(res sdk.TxResponse, msgs []sdk.Msg) {
+	c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s: %s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
+}
+
+// LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
+func (c *Chain) LogSuccessTx(res sdk.TxResponse, msgs []sdk.Msg) {
+	c.logger.Info(fmt.Sprintf("✔ [%s]@{%d} - msg(%s)", c.ChainID, res.Height, getMsgAction(msgs)))
 }
 
 func getMsgAction(msgs []sdk.Msg) string {

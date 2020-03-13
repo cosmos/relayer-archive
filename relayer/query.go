@@ -119,7 +119,7 @@ func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 		return conStateRes, qClntStateErr(err)
 	} else if res.Value == nil {
 		// TODO: Better way to handle this?
-		return clientTypes.NewClientStateResponse("notfound", nil, nil, 0), nil
+		return clientTypes.StateResponse{}, nil
 	}
 
 	var cs exported.ClientState
