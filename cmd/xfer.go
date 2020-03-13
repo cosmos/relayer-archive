@@ -93,11 +93,11 @@ func xfer() *cobra.Command {
 
 			// reconstructing packet data here instead of retrieving from an indexed node
 			xferPacket := chains[src].XferPacket(
-				sdk.NewCoins(),
+				sdk.NewCoins(amount),
 				chains[src].MustGetAddress(),
 				dstAddr,
-				false,
-				19291024,
+				source,
+				dstHeader.GetHeight()+1000,
 			)
 
 			// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
