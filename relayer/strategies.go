@@ -13,7 +13,6 @@ import (
 // TODO: Figure out a better way to deal with these
 const (
 	ibcversion = "1.0.0"
-	portID     = "bankbankbank"
 )
 
 // Strategy determines which relayer strategy to use

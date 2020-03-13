@@ -58,7 +58,6 @@ func init() {
 	)
 
 	// This is a bit of a cheat :shushing_face:
-	// TODO: Remove cdc in favor of appCodec once all modules are migrated.
 	cdc = codecstd.MakeCodec(simapp.ModuleBasics)
 
 	appCodec = codecstd.NewAppCodec(cdc)

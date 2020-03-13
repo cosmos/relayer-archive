@@ -255,7 +255,6 @@ func (c *Chain) SetPath(p *PathEnd, t pathType) error {
 // Validate returns errors about invalid identifiers as well as
 // unset path variables for the appropriate type
 func (p *PathEnd) Validate(t pathType) error {
-	// TODO: validate chain ID here too?
 	switch t {
 	case CLNTPATH:
 		if err := p.Vclient(); err != nil {

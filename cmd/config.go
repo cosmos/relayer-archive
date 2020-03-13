@@ -92,7 +92,6 @@ func configInitCmd() *cobra.Command {
 			cfgDir := path.Join(home, "config")
 			cfgPath := path.Join(cfgDir, "config.yaml")
 
-			// TODO: fix case where --home dir doesn't exist
 			// If the config doesn't exist...
 			if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 				// And the config folder doesn't exist...
@@ -151,7 +150,6 @@ func (c Config) MustYAML() []byte {
 	return out
 }
 
-// TODO: Add more defaults here
 func defaultConfig() []byte {
 	return Config{
 		Global: newDefaultGlobalConfig(),
@@ -227,7 +225,6 @@ func (c *Config) DeletePath(i int) *Config {
 }
 
 // ChainConfig describes the config necessary for an individual chain
-// TODO: Are there additional parameters needed here
 type ChainConfig struct {
 	Key            string  `yaml:"key" json:"key"`
 	ChainID        string  `yaml:"chain-id" json:"chain-id"`

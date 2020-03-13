@@ -266,6 +266,5 @@ func userInputAdd(cmd *cobra.Command) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	// TODO: ensure that there are no other configured chains with the same ID
 	return out, nil
 }
