@@ -1,122 +1,107 @@
 #!/bin/bash
 
-GAIA_DIR="$GOPATH/src/github.com/cosmos/gaia"
-RELAYER_DIR="$GOPATH/src/github.com/cosmos/relayer"
-GAIA_BRANCH=ibc-alpha
-GAIA_CONF=$(mktemp -d)
-
-read -p "two-chains.sh will delete your ~/.relayer folder. Do you wish to continue? (y/n): " -n 1 -r
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    exit 1
+# Ensure gopath is set and go is installed
+if [[ ! -d $GOPATH ]] || [[ ! -d $GOBIN ]] || [[ ! -x "$(which go)" ]]; then
+  echo "Your \$GOPATH is not set or go is not installed,"
+  echo "ensure you have a working installation of go before trying again..."
+  echo "https://golang.org/doc/install"
+  exit 1
 fi
 
-sleep 1
+GAIA_REPO="$GOPATH/src/github.com/cosmos/gaia"
+RELAYER_DIR="$(pwd)"
+GAIA_BRANCH=ibc-alpha
+GAIA_DATA="$RELAYER_DIR/data"
 
-echo "Killing existing gaiad instances..."
-killall gaiad
+# ARGS: 
+# $1 -> local || remote, defaults to remote
+
+# Ensure user understands what will be deleted
+if [[ -d $GAIA_DATA ]] && [[ ! "$2" == "skip" ]]; then
+  read -p "$0 will delete $GAIA_DATA folder. Do you wish to continue? (y/n): " -n 1 -r
+  echo 
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      exit 1
+  fi
+fi
+
+rm -rf $GAIA_DATA &> /dev/null
+killall gaiad &> /dev/null
 
 set -e
 
-echo "Building Gaia..."
-cd $GAIA_DIR
-git checkout $GAIA_BRANCH &> /dev/null
-make install &> /dev/null
+echo "Building github.com/cosmos/gaia@$GAIA_BRANCH..."
 
-echo "Building Relayer..."
-cd $RELAYER_DIR
-go build -o $GOBIN/relayer main.go
+if [[ -d $GAIA_REPO ]]; then
+  cd $GAIA_REPO
 
-echo "Generating relayer configurations..."
-rm -rf $HOME/.relayer
-relayer config init
-relayer chains add -f demo/ibc0.json
-relayer chains add -f demo/ibc1.json
-relayer paths add ibc0 ibc1 -f demo/path.json
+  # remote build syncs with remote then builds
+  if [[ "$1" == "local" ]]; then
+    make install &> /dev/null
+  else
+    if [[ ! -n $(git status -s) ]]; then
+      # sync with remote $GAIA_BRANCH
+      git fetch --all &> /dev/null
+      git checkout $GAIA_BRANCH &> /dev/null
+      git pull origin $GAIA_BRANCH &> /dev/null
+
+      # install
+      make install &> /dev/null
+
+      # ensure that built binary has the same version as the repo
+      if [[ ! "$(gaiad version --long 2>&1 | grep "commit:" | sed 's/commit: //g')" == "$(git rev-parse HEAD)" ]]; then
+        echo "built version of gaiad commit doesn't match "
+        exit 1
+      fi 
+    else
+      echo "uncommited changes in $GAIA_REPO, please commit or stash before building"
+      exit 1
+    fi
+    
+  fi 
+else 
+  echo "$GAIA_REPO doesn't exist, and you may not have have the gaia repo locally,"
+  echo "if you want to download gaia to your \$GOPATH try running the following command:"
+  echo "mkdir -p $(dirname $GAIA_REPO) && git clone git@github.com:cosmos/gaia $GAIA_REPO"
+fi
+
+chainid0=ibc0
+chainid1=ibc1
 
 echo "Generating gaia configurations..."
-cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets
-echo -e "\n" | gaiad testnet -o ibc0 --v 1 --chain-id ibc0 --node-dir-prefix n --keyring-backend test &> /dev/null
-echo -e "\n" | gaiad testnet -o ibc1 --v 1 --chain-id ibc1 --node-dir-prefix n --keyring-backend test &> /dev/null
+mkdir -p $GAIA_DATA && cd $GAIA_DATA
+echo -e "\n" | gaiad testnet -o $chainid0 --v 1 --chain-id $chainid0 --node-dir-prefix n --keyring-backend test &> /dev/null
+echo -e "\n" | gaiad testnet -o $chainid1 --v 1 --chain-id $chainid1 --node-dir-prefix n --keyring-backend test &> /dev/null
 
+cfgpth="n0/gaiad/config/config.toml"
 if [ "$(uname)" = "Linux" ]; then
-  sed -i 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
-  sed -i 's/"leveldb"/"goleveldb"/g' ibc1/n0/gaiad/config/config.toml
-  sed -i 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' ibc1/n0/gaiad/config/config.toml
-  sed -i 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' ibc1/n0/gaiad/config/config.toml
-  sed -i 's#"localhost:6060"#"localhost:6061"#g' ibc1/n0/gaiad/config/config.toml
-  sed -i 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' ibc1/n0/gaiad/config/config.toml
+  # TODO: Just index some specified tags
+  # sed -i 's/index_keys = ""/index_keys = "tx.height,tx.hash"'
+  sed -i 's/"leveldb"/"goleveldb"/g' $chainid0/$cfgpth
+  sed -i 's/"leveldb"/"goleveldb"/g' $chainid1/$cfgpth
+  sed -i 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' $chainid1/$cfgpth
+  sed -i 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' $chainid1/$cfgpth
+  sed -i 's#"localhost:6060"#"localhost:6061"#g' $chainid1/$cfgpth
+  sed -i 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' $chainid1/$cfgpth
 else
-  sed -i '' 's/"leveldb"/"goleveldb"/g' ibc0/n0/gaiad/config/config.toml
-  sed -i '' 's/"leveldb"/"goleveldb"/g' ibc1/n0/gaiad/config/config.toml
-  sed -i '' 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' ibc1/n0/gaiad/config/config.toml
-  sed -i '' 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' ibc1/n0/gaiad/config/config.toml
-  sed -i '' 's#"localhost:6060"#"localhost:6061"#g' ibc1/n0/gaiad/config/config.toml
-  sed -i '' 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' ibc1/n0/gaiad/config/config.toml
-fi;
+  # TODO: Just index some specified tags
+  # sed -i 's/index_keys = ""/index_keys = "tx.height,tx.hash"'
+  sed -i '' 's/"leveldb"/"goleveldb"/g' $chainid0/$cfgpth
+  sed -i '' 's/"leveldb"/"goleveldb"/g' $chainid1/$cfgpth
+  sed -i '' 's#"tcp://0.0.0.0:26656"#"tcp://0.0.0.0:26556"#g' $chainid1/$cfgpth
+  sed -i '' 's#"tcp://0.0.0.0:26657"#"tcp://0.0.0.0:26557"#g' $chainid1/$cfgpth
+  sed -i '' 's#"localhost:6060"#"localhost:6061"#g' $chainid1/$cfgpth
+  sed -i '' 's#"tcp://127.0.0.1:26658"#"tcp://127.0.0.1:26558"#g' $chainid1/$cfgpth
+fi
 
-gaiacli config --home ibc0/n0/gaiacli/ chain-id ibc0 &> /dev/null
-gaiacli config --home ibc1/n0/gaiacli/ chain-id ibc1 &> /dev/null
-gaiacli config --home ibc0/n0/gaiacli/ output json &> /dev/null
-gaiacli config --home ibc1/n0/gaiacli/ output json &> /dev/null
-gaiacli config --home ibc0/n0/gaiacli/ node http://localhost:26657 &> /dev/null
-gaiacli config --home ibc1/n0/gaiacli/ node http://localhost:26557 &> /dev/null
+gclpth="n0/gaiacli/"
+gaiacli config --home $chainid0/$gclpth chain-id $chainid0 &> /dev/null
+gaiacli config --home $chainid1/$gclpth chain-id $chainid1 &> /dev/null
+gaiacli config --home $chainid0/$gclpth output json &> /dev/null
+gaiacli config --home $chainid1/$gclpth output json &> /dev/null
+gaiacli config --home $chainid0/$gclpth node http://localhost:26657 &> /dev/null
+gaiacli config --home $chainid1/$gclpth node http://localhost:26557 &> /dev/null
 
 echo "Starting Gaiad instances..."
-gaiad --home ibc0/n0/gaiad start --pruning=nothing > ibc0.log 2>&1 &
-gaiad --home ibc1/n0/gaiad start --pruning=nothing > ibc1.log 2>&1 & 
-# gaiad --home ibc0/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc0.log 2>&1 &
-# gaiad --home ibc1/n0/gaiad start --pruning=nothing --tx_index.index_all_tags=true > ibc1.log 2>&1 & 
-
-echo "Set the following env to use gaiacli with the running chains:"
-echo 
-echo "export GAIA=$GAIA_CONF"
-echo
-echo "Key Seeds for importing into gaiacli or relayer:"
-SEED0=$(jq -r '.secret' ibc0/n0/gaiacli/key_seed.json)
-SEED1=$(jq -r '.secret' ibc1/n0/gaiacli/key_seed.json)
-echo "  ibc0 -> $SEED0"
-echo "  ibc1 -> $SEED1"
-echo
-echo "NOTE: Below are account addresses for each chain. They are also validator addresses:"
-echo "  ibc0 address: $(relayer keys restore ibc0 testkey "$SEED0" -a)"
-echo "  ibc1 address: $(relayer keys restore ibc1 testkey "$SEED1" -a)"
-echo
-echo "Creating configured path between ibc0 and ibc1..."
-sleep 8
-relayer lite init ibc0 -f
-relayer lite init ibc1 -f
-sleep 5
-relayer tx full-path ibc0 ibc1
-echo
-<<<<<<< HEAD
-echo "Create channel raw"
-sleep 5
-relayer --home $RLY_CONF tx raw chan-init $c0 $c1 $c0cl $c1cl $c0conn $c1conn $c0chan $c1chan $c0port $c1port $ordering
-sleep 5
-relayer --home $RLY_CONF tx raw chan-try $c1 $c0 $c1cl $c1conn $c1chan $c0chan $c1port $c0port
-sleep 5
-relayer --home $RLY_CONF tx raw chan-ack $c0 $c1 $c0cl $c0chan $c1chan $c0port $c1port
-sleep 5
-relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port
-echo
-echo "Command to test transfer"
-echo "relayer --home $RLY_CONF tx raw xfer $c0 $c1 $c0chan $c1chan $c0port $c1port $c0cl $c1cl 10stake $(relayer --home $RLY_CONF keys show $c1 testkey -a)"
-echo
-echo "IDENTIFIERS FOR IBC PRIMATIVES:"
-echo "chain0 ChainID: $c0"
-echo "chain0 ClntID:  $c0cl"
-echo "chain0 ConnID:  $c0conn"
-echo "chain0 ChanID:  $c0chan"
-echo "chain0 PortID:  $c0port"
-echo
-echo "chain1 ChainID: $c1"
-echo "chain1 ClntID:  $c1cl"
-echo "chain1 ConnID:  $c1conn"
-echo "chain1 ChanID:  $c1chan"
-echo "chain1 PortID:  $c1port"
-echo 
-echo "export RLY=$RLY_CONF"
-=======
-echo "Ready to send msgs..."
->>>>>>> jack/ux-fixes
+gaiad --home $GAIA_DATA/$chainid0/n0/gaiad start --pruning=nothing > $chainid0.log 2>&1 &
+gaiad --home $GAIA_DATA/$chainid1/n0/gaiad start --pruning=nothing > $chainid1.log 2>&1 & 
