@@ -13,10 +13,10 @@ killall gaiad
 
 set -e
 
-#echo "Building Gaia..."
-#cd $GAIA_DIR
-#git checkout $GAIA_BRANCH &> /dev/null
-#make install &> /dev/null
+echo "Building Gaia..."
+cd $GAIA_DIR
+git checkout $GAIA_BRANCH &> /dev/null
+make install &> /dev/null
 
 echo "Building Relayer..."
 cd $RELAYER_DIR
