@@ -29,12 +29,12 @@ $ relayer chains add -f demo/ibc1.json
 
 $ cat ~/.relayer/config/config.yaml
 
-# To finalize your config, add the path between the two chains to work on
+# To finalize your config, add a path between the two chains
 $ relayer paths add -f demo/path.json
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
-$ relayer keys add ibc0 testkey "$(jq -r '.secret' ibc-testnets/ibc0/n0/gaiacli/key_seed.json)"
-$ relayer keys add ibc0 testkey "$(jq -r '.secret' ibc-testnets/ibc1/n0/gaiacli/key_seed.json)"
+$ relayer keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)" -a
+$ relayer keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)" -a
 
 # Then its time to initialize the relayer's lite clients for each chain
 # All data moving forward is validated by these lite clients.

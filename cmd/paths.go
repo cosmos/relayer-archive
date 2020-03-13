@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
@@ -22,9 +25,78 @@ func pathsCmd() *cobra.Command {
 		pathsListCmd(),
 		pathsShowCmd(),
 		pathsAddCmd(),
+		pathsGenCmd(),
+		pathsDeleteCmd(),
 	)
 
 	return cmd
+}
+
+func pathsGenCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "gen [src-chain-id] [dst-chain-id]",
+		Short: "generate identifiers for a new path between src and dst",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, dst := args[0], args[1]
+			_, err := config.c.GetChains(src, dst)
+			if err != nil {
+				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
+			}
+
+			path := relayer.Path{
+				Src: &relayer.PathEnd{
+					ChainID:      src,
+					ClientID:     randString(16),
+					ConnectionID: randString(16),
+					ChannelID:    randString(16),
+					PortID:       randString(16),
+				},
+				Dst: &relayer.PathEnd{
+					ChainID:      dst,
+					ClientID:     randString(16),
+					ConnectionID: randString(16),
+					ChannelID:    randString(16),
+					PortID:       randString(16),
+				},
+			}
+
+			c, err := config.AddPath(path)
+			if err != nil {
+				return err
+			}
+
+			return overWriteConfig(cmd, c)
+		},
+	}
+	return cmd
+}
+
+func pathsDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete [index]",
+		Short: "delete a path with a given index",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			index, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil {
+				return err
+			}
+
+			if int(index) >= len(config.Paths) {
+				return fmt.Errorf("only %d paths in array, index(%d) passed", len(config.Paths), index)
+			}
+
+			cfg := config
+			cfg.Paths = removePath(config.Paths, int(index))
+			return overWriteConfig(cmd, cfg)
+		},
+	}
+	return cmd
+}
+
+func removePath(paths []relayer.Path, index int) []relayer.Path {
+	return append(paths[:index], paths[index+1:]...)
 }
 
 func pathsListCmd() *cobra.Command {
@@ -255,4 +327,14 @@ func userInputPathAdd(path relayer.Path, src, dst string) (*Config, error) {
 	}
 
 	return out, nil
+}
+
+func randString(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	chars := []rune("abcdefghijklmnopqrstuvwxyz")
+	var b strings.Builder
+	for i := 0; i < length; i++ {
+		b.WriteRune(chars[rand.Intn(len(chars))])
+	}
+	return b.String()
 }
