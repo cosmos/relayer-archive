@@ -445,33 +445,43 @@ func qPacketAckErr(err error) error {
 }
 
 // QueryTxs returns an array of transactions given a tag
-func (c *Chain) QueryTxs(height uint64, events []string) (res sdk.SearchTxsResult, err error) {
+func (c *Chain) QueryTxs(height uint64, page, limit int, events []string) (*sdk.SearchTxsResult, error) {
 	if len(events) == 0 {
-		return res, errors.New("must declare at least one event to search")
+		return nil, errors.New("must declare at least one event to search")
 	}
 
-	resTxs, err := c.Client.TxSearch(strings.Join(events, " AND "), true, 0, 10000, "asc")
+	if page <= 0 {
+		return nil, errors.New("page must greater than 0")
+	}
+
+	if limit <= 0 {
+		return nil, errors.New("limit must greater than 0")
+	}
+
+	resTxs, err := c.Client.TxSearch(strings.Join(events, " AND "), true, page, limit, "")
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
-	for _, tx := range resTxs.Txs {
-		if err = c.ValidateTxResult(tx); err != nil {
-			return res, err
-		}
-	}
+	// TODO: Enable lite client validation
+	// for _, tx := range resTxs.Txs {
+	// 	if err = c.ValidateTxResult(tx); err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 
 	resBlocks, err := c.queryBlocksForTxResults(resTxs.Txs)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
 	txs, err := c.formatTxResults(resTxs.Txs, resBlocks)
 	if err != nil {
-		return res, err
+		return nil, err
 	}
 
-	return sdk.NewSearchTxsResult(resTxs.TotalCount, len(txs), 0, 10000, txs), nil
+	res := sdk.NewSearchTxsResult(resTxs.TotalCount, len(txs), page, limit, txs)
+	return &res, nil
 }
 
 // QueryABCI is an affordance for querying the ABCI server associated with a chain

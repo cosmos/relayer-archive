@@ -192,7 +192,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 
 			// First, scan logs for sent packets and relay all of them
 			// TODO: This is currently incorrect and will change
-			srcRes, err := src.QueryTxs(uint64(hs[src.ChainID].Height), []string{"type:transfer"})
+			srcRes, err := src.QueryTxs(uint64(hs[src.ChainID].Height), 0, 10000, []string{"type:transfer"})
 			if err != nil {
 				return nil, err
 			}
@@ -207,7 +207,7 @@ func NaiveRelayStrategy(src, dst *Chain) (*RelayMsgs, error) {
 
 			// Then, scan logs for received packets and relay acknowledgements
 			// TODO: This is currently incorrect and will change
-			dstRes, err := dst.QueryTxs(uint64(hs[dst.ChainID].Height), []string{"type:recv_packet"})
+			dstRes, err := dst.QueryTxs(uint64(hs[dst.ChainID].Height), 0, 10000, []string{"type:recv_packet"})
 			if err != nil {
 				return nil, err
 			}

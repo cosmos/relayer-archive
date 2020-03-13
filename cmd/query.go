@@ -3,14 +3,15 @@ package cmd
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/x/auth"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 func init() {
@@ -27,13 +28,78 @@ func init() {
 	queryCmd.AddCommand(queryNextSeqRecv())
 	queryCmd.AddCommand(queryPacketCommitment())
 	queryCmd.AddCommand(queryPacketAck())
+	queryCmd.AddCommand(queryTxs())
 }
+
+var eventFormat = "{eventType}.{eventAttribute}={value}"
 
 // queryCmd represents the chain command
 var queryCmd = &cobra.Command{
 	Use:     "query",
 	Aliases: []string{"q"},
 	Short:   "query functionality for configured chains",
+}
+
+func queryTxs() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "txs [chain-id] [events]",
+		Short: "query transactions by the events they produce",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.c.GetChain(args[0])
+			if err != nil {
+				return err
+			}
+
+			events, err := parseEvents(args[1])
+			if err != nil {
+				return err
+			}
+
+			h, err := chain.UpdateLiteWithHeader()
+			if err != nil {
+				return err
+			}
+
+			txs, err := chain.QueryTxs(h.GetHeight(), viper.GetInt(flags.FlagPage), viper.GetInt(flags.FlagLimit), events)
+			if err != nil {
+				return err
+			}
+
+			return chain.PrintOutput(txs, cmd)
+		},
+	}
+	return outputFlags(paginationFlags(cmd))
+}
+
+func parseEvents(e string) ([]string, error) {
+	eventsStr := strings.Trim(e, "'")
+	var events []string
+	if strings.Contains(eventsStr, "&") {
+		events = strings.Split(eventsStr, "&")
+	} else {
+		events = append(events, eventsStr)
+	}
+
+	var tmEvents []string
+
+	for _, event := range events {
+		if !strings.Contains(event, "=") {
+			return []string{}, fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
+		} else if strings.Count(event, "=") > 1 {
+			return []string{}, fmt.Errorf("invalid event; event %s should be of the format: %s", event, eventFormat)
+		}
+
+		tokens := strings.Split(event, "=")
+		if tokens[0] == tmtypes.TxHeightKey {
+			event = fmt.Sprintf("%s=%s", tokens[0], tokens[1])
+		} else {
+			event = fmt.Sprintf("%s='%s'", tokens[0], tokens[1])
+		}
+
+		tmEvents = append(tmEvents, event)
+	}
+	return tmEvents, nil
 }
 
 func queryAccountCmd() *cobra.Command {
