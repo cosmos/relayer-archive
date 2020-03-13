@@ -12,6 +12,7 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -20,6 +21,65 @@ var (
 	defaultIBCVersions   = []string{defaultIBCVersion}
 	defaultUnbondingTime = time.Hour * 504 // 3 weeks in hours
 )
+
+// CreateClients creates clients for src on dst and dst on src given the configured paths
+func (src *Chain) CreateClients(dst *Chain, cmd *cobra.Command) (err error) {
+	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+
+	// Create client for dst on src if it doesn't exist
+	var srcCs, dstCs clientTypes.StateResponse
+	if srcCs, err = src.QueryClientState(); err != nil {
+		return err
+	} else if srcCs.ClientState == nil {
+		dstH, err := dst.UpdateLiteWithHeader()
+		if err != nil {
+			return err
+		}
+		clients.Src = append(clients.Src, src.CreateClient(dstH))
+	}
+	// TODO: maybe log something here that the client has been created?
+
+	// Create client for src on dst if it doesn't exist
+	if dstCs, err = dst.QueryClientState(); err != nil {
+		return err
+	} else if dstCs.ClientState == nil {
+		srcH, err := src.UpdateLiteWithHeader()
+		if err != nil {
+			return err
+		}
+		clients.Dst = append(clients.Dst, dst.CreateClient(srcH))
+	}
+	// TODO: maybe log something here that the client has been created?
+
+	// Send msgs to both chains
+	if err = clients.Send(src, dst, cmd); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CreateConnection runs the connection creation messages on timeout until they pass
+// TODO: add max retries or something to this function
+func (src *Chain) CreateConnection(dst *Chain, to time.Duration, cmd *cobra.Command) error {
+	ticker := time.NewTicker(to)
+	for ; true; <-ticker.C {
+		connSteps, err := src.CreateConnectionStep(dst)
+		if err != nil {
+			return err
+		}
+
+		if !connSteps.Ready() {
+			break
+		}
+
+		if err = connSteps.Send(src, dst, cmd); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 // CreateConnectionStep returns the next set of messags for creating a channel
 // with the given identifier between chains src and dst. If handshake hasn't started,
@@ -123,32 +183,30 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	return out, nil
 }
 
-// CreateChannel creates a connection between two chains given src and dst client IDs
-func (src *Chain) CreateChannel(dst *Chain, timeout time.Duration, ordering chanState.Order) error {
-	ticker := time.NewTicker(timeout)
+// CreateChannel runs the channel creation messages on timeout until they pass
+// TODO: add max retries or something to this function
+func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration, cmd *cobra.Command) error {
+	var order chanState.Order
+	if ordered {
+		order = chanState.ORDERED
+	} else {
+		order = chanState.UNORDERED
+	}
+
+	ticker := time.NewTicker(to)
 	for ; true; <-ticker.C {
-		msgs, err := src.CreateChannelStep(dst, ordering)
+		chanSteps, err := src.CreateChannelStep(dst, order)
 		if err != nil {
 			return err
 		}
 
-		if !msgs.Ready() {
+		if !chanSteps.Ready() {
 			break
 		}
 
-		// Submit the transactions to src chain
-		srcRes, err := src.SendMsgs(msgs.Src)
-		if err != nil {
+		if err = chanSteps.Send(src, dst, cmd); err != nil {
 			return err
 		}
-		src.logger.Info(srcRes.String())
-
-		// Submit the transactions to dst chain
-		dstRes, err := dst.SendMsgs(msgs.Dst)
-		if err != nil {
-			return err
-		}
-		src.logger.Info(dstRes.String())
 	}
 
 	return nil

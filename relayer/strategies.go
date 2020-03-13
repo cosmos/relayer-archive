@@ -1,16 +1,18 @@
 package relayer
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	"github.com/spf13/cobra"
 )
 
 // TODO: Figure out a better way to deal with these
 const (
 	ibcversion = "1.0.0"
-	portID     = "bankbankbank"
 )
 
 // Strategy determines which relayer strategy to use
@@ -41,6 +43,45 @@ func (r *RelayMsgs) Ready() bool {
 		return false
 	}
 	return true
+}
+
+// Send sends the messages with appropriate output
+func (r *RelayMsgs) Send(src, dst *Chain, cmd *cobra.Command) error {
+	// SendRelayMsgs sends the msgs to their chains
+	if len(r.Src) > 0 {
+		// Submit the transactions to src chain
+		res, err := src.SendMsgs(r.Src)
+		if err != nil || res.Code != 0 {
+			src.logger.Info(fmt.Sprintf("FAILED  [%s] <- %s %s(%s)", src.ChainID, getMsgAction(r.Src), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
+		} else {
+			// NOTE: Add more data to this such as identifiers
+			src.logger.Info(fmt.Sprintf("SUCCESS [%s] <- %s", src.ChainID, getMsgAction(r.Src)))
+		}
+	}
+
+	if len(r.Dst) > 0 {
+		// Submit the transactions to dst chain
+		res, err := dst.SendMsgs(r.Dst)
+		if err != nil || res.Code != 0 {
+			dst.logger.Info(fmt.Sprintf("FAILED  [%s] <- %s %s(%s)", dst.ChainID, getMsgAction(r.Dst), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
+		} else {
+			// NOTE: Add more data to this such as identifiers
+			dst.logger.Info(fmt.Sprintf("SUCCESS [%s] <- %s", dst.ChainID, getMsgAction(r.Dst)))
+		}
+	}
+
+	return nil
+}
+
+func getMsgAction(msgs []sdk.Msg) string {
+	switch len(msgs) {
+	case 1:
+		return msgs[0].Type()
+	case 2:
+		return msgs[1].Type()
+	default:
+		return ""
+	}
 }
 
 // NaiveRelayStrategy returns the RelayMsgs that need to be run to relay between
@@ -199,3 +240,8 @@ func addrsHeaders(src, dst *Chain) (srcAddr, dstAddr sdk.AccAddress, srcHeader, 
 	dstHeader, err = dst.QueryLatestHeader()
 	return
 }
+
+// func processRes(res sdk.TxResponse) string {
+// 	codespace := res.Codespace
+// 	code := res.Code
+// }

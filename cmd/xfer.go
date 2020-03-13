@@ -13,10 +13,10 @@ import (
 
 func xfer() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer [src-chain-id] [dst-chain-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [src-client-id] [dst-client-id] [amount] [dst-addr]",
+		Use:   "xfer [src-chain-id] [dst-chain-id] [index]",
 		Short: "xfer",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
-		Args:  cobra.ExactArgs(10),
+		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.c.GetChains(src, dst)
@@ -24,15 +24,11 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathChannelClient(args[6], args[2], args[4]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
+			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathChannelClient(args[7], args[3], args[5]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
-			}
-
-			amount, err := sdk.ParseCoin(args[8])
+			amount, err := sdk.ParseCoin("10stake")
 			if err != nil {
 				return err
 			}
@@ -48,10 +44,7 @@ func xfer() *cobra.Command {
 				source = true
 			}
 
-			dstAddr, err := sdk.AccAddressFromBech32(args[9])
-			if err != nil {
-				return err
-			}
+			dstAddr := chains[dst].MustGetAddress()
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
@@ -59,12 +52,12 @@ func xfer() *cobra.Command {
 			}
 
 			// MsgTransfer will call SendPacket on src chain
-			txs := []sdk.Msg{
-				chains[src].MsgTransfer(chains[dst], dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source),
+			txs := relayer.RelayMsgs{
+				Src: []sdk.Msg{chains[src].MsgTransfer(chains[dst], dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source)},
+				Dst: []sdk.Msg{},
 			}
 
-			err = SendAndPrint(txs, chains[src], cmd)
-			if err != nil {
+			if err = txs.Send(chains[src], chains[dst], cmd); err != nil {
 				return err
 			}
 
@@ -103,28 +96,31 @@ func xfer() *cobra.Command {
 			// Debugging by simply passing in the packet information that we know was sent earlier in the SendPacket
 			// part of the command. In a real relayer, this would be a separate command that retrieved the packet
 			// information from an indexing node
-			txs = []sdk.Msg{
-				chains[dst].UpdateClient(hs[src]),
-				chains[dst].MsgRecvPacket(
-					chains[src],
-					seqRecv.NextSequenceRecv,
-					xferPacket,
-					chanTypes.NewPacketResponse(
-						chains[dst].PathEnd.PortID,
-						chains[dst].PathEnd.ChannelID,
-						seqSend,
-						chains[src].NewPacket(
-							chains[dst],
+			txs = relayer.RelayMsgs{
+				Dst: []sdk.Msg{
+					chains[dst].UpdateClient(hs[src]),
+					chains[dst].MsgRecvPacket(
+						chains[src],
+						seqRecv.NextSequenceRecv,
+						xferPacket,
+						chanTypes.NewPacketResponse(
+							chains[src].PathEnd.PortID,
+							chains[src].PathEnd.ChannelID,
 							seqSend,
-							xferPacket,
+							chains[dst].NewPacket(
+								chains[src],
+								seqSend,
+								xferPacket,
+							),
+							srcCommitRes.Proof.Proof,
+							int64(srcCommitRes.ProofHeight),
 						),
-						srcCommitRes.Proof.Proof,
-						int64(srcCommitRes.ProofHeight),
 					),
-				),
+				},
+				Src: []sdk.Msg{},
 			}
 
-			return SendAndPrint(txs, chains[dst], cmd)
+			return txs.Send(chains[src], chains[dst], cmd)
 		},
 	}
 	return transactionFlags(cmd)

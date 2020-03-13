@@ -57,7 +57,7 @@ func queryAccountCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(acc, cmd)
+			return chain.PrintOutput(acc, cmd)
 		},
 	}
 	return outputFlags(cmd)
@@ -112,7 +112,7 @@ func queryHeaderCmd() *cobra.Command {
 				return nil
 			}
 
-			return PrintOutput(header, cmd)
+			return chain.PrintOutput(header, cmd)
 		},
 	}
 
@@ -155,7 +155,7 @@ func queryNodeStateCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(csRes, cmd)
+			return chain.PrintOutput(csRes, cmd)
 		},
 	}
 
@@ -182,7 +182,7 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -205,7 +205,7 @@ func queryClientsCmd() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -216,7 +216,7 @@ func queryConnections() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "connections [chain-id]",
 		Short: "Query for all connections on a given chain",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
 			if err != nil {
@@ -228,7 +228,7 @@ func queryConnections() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -260,7 +260,7 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res.ConnectionPaths, cmd)
+			return chain.PrintOutput(res.ConnectionPaths, cmd)
 		},
 	}
 
@@ -292,7 +292,7 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -324,7 +324,7 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -335,7 +335,7 @@ func queryChannels() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "channels [chain-id]",
 		Short: "Query for all channels on a given chain",
-		Args:  cobra.ExactArgs(2),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.c.GetChain(args[0])
 			if err != nil {
@@ -347,7 +347,7 @@ func queryChannels() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -379,7 +379,7 @@ func queryNextSeqRecv() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -416,7 +416,7 @@ func queryPacketCommitment() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
@@ -453,7 +453,7 @@ func queryPacketAck() *cobra.Command {
 				return err
 			}
 
-			return PrintOutput(res, cmd)
+			return chain.PrintOutput(res, cmd)
 		},
 	}
 
