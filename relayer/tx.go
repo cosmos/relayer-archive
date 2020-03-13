@@ -1,6 +1,7 @@
 package relayer
 
 import (
+	"fmt"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -237,6 +238,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 // UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
 func (src *Chain) UpdateClient(dstHeader *tmclient.Header) sdk.Msg {
+	fmt.Printf("path end: %v\n", src.PathEnd)
 	return tmclient.NewMsgUpdateClient(
 		src.PathEnd.ClientID,
 		*dstHeader,
@@ -445,7 +447,7 @@ func (src *Chain) NewPacket(dst *Chain, sequence uint64, packetData chanState.Pa
 		src.PathEnd.PortID,
 		src.PathEnd.ChannelID,
 		dst.PathEnd.PortID,
-		dst.PathEnd.PortID,
+		dst.PathEnd.ChannelID,
 	)
 }
 

@@ -13,10 +13,10 @@ import (
 
 func xfer() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer [src-chain-id] [dst-chain-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [amount] [dst-addr]",
+		Use:   "xfer [src-chain-id] [dst-chain-id] [src-chan-id] [dst-chan-id] [src-port-id] [dst-port-id] [src-client-id] [dst-client-id] [amount] [dst-addr]",
 		Short: "xfer",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
-		Args:  cobra.ExactArgs(8),
+		Args:  cobra.ExactArgs(10),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.c.GetChains(src, dst)
@@ -24,15 +24,15 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathChannel(args[2], args[4]); err != nil {
+			if err = chains[src].PathChannelClient(args[6], args[2], args[4]); err != nil {
 				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
 			}
 
-			if err = chains[dst].PathChannel(args[3], args[5]); err != nil {
+			if err = chains[dst].PathChannelClient(args[7], args[3], args[5]); err != nil {
 				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
 			}
 
-			amount, err := sdk.ParseCoin(args[6])
+			amount, err := sdk.ParseCoin(args[8])
 			if err != nil {
 				return err
 			}
@@ -48,7 +48,7 @@ func xfer() *cobra.Command {
 				source = true
 			}
 
-			dstAddr, err := sdk.AccAddressFromBech32(args[7])
+			dstAddr, err := sdk.AccAddressFromBech32(args[9])
 			if err != nil {
 				return err
 			}

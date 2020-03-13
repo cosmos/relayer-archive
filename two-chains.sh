@@ -13,10 +13,10 @@ killall gaiad
 
 set -e
 
-echo "Building Gaia..."
-cd $GAIA_DIR
-git checkout $GAIA_BRANCH &> /dev/null
-make install &> /dev/null
+#echo "Building Gaia..."
+#cd $GAIA_DIR
+#git checkout $GAIA_BRANCH &> /dev/null
+#make install &> /dev/null
 
 echo "Building Relayer..."
 cd $RELAYER_DIR
@@ -118,7 +118,7 @@ sleep 5
 relayer --home $RLY_CONF tx raw chan-confirm $c1 $c0 $c1cl $c1chan $c0chan $c1port $c0port
 echo
 echo "Command to test transfer"
-echo "relayer --home $RLY_CONF tx raw xfer $c0 $c1 $c0chan $c1chan $c0port $c1port 10stake $(relayer --home $RLY_CONF keys show $c1 testkey -a)"
+echo "relayer --home $RLY_CONF tx raw xfer $c0 $c1 $c0chan $c1chan $c0port $c1port $c0cl $c1cl 10stake $(relayer --home $RLY_CONF keys show $c1 testkey -a)"
 echo
 echo "IDENTIFIERS FOR IBC PRIMATIVES:"
 echo "chain0 ChainID: $c0"
