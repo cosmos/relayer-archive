@@ -18,6 +18,7 @@ import (
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	libclient "github.com/tendermint/tendermint/rpc/lib/client"
 	"gopkg.in/yaml.v2"
 )
 
@@ -32,7 +33,7 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 		return &Chain{}, err
 	}
 
-	client, err := rpcclient.NewHTTP(rpcAddr, "/websocket")
+	client, err := newRPCClient(rpcAddr)
 	if err != nil {
 		return &Chain{}, err
 	}
@@ -53,6 +54,21 @@ func NewChain(key, chainID, rpcAddr, accPrefix string, gas uint64, gasAdj float6
 		Client: client, Cdc: cdc, Amino: amino, TrustingPeriod: tp, HomePath: homePath, logger: log.NewTMLogger(log.NewSyncWriter(os.Stdout))}, nil
 }
 
+func newRPCClient(addr string) (*rpcclient.HTTP, error) {
+	httpClient, err := libclient.DefaultHTTPClient(addr)
+	if err != nil {
+		return nil, err
+	}
+	httpClient.Timeout = 5 * time.Second
+	rpcClient, err := rpcclient.NewHTTPWithClient(addr, "/websocket", httpClient)
+	if err != nil {
+		return nil, err
+	}
+
+	return rpcClient, nil
+
+}
+
 // Chain represents the necessary data for connecting to and indentifying a chain and its counterparites
 type Chain struct {
 	Key            string        `yaml:"key"`
@@ -69,7 +85,7 @@ type Chain struct {
 	PathEnd        *PathEnd
 
 	Keybase keys.Keybase
-	Client  *rpcclient.HTTP
+	Client  rpcclient.Client
 	Cdc     *codecstd.Codec
 	Amino   *aminocodec.Codec
 
@@ -129,9 +145,21 @@ func (c *Chain) BroadcastTxCommit(txBytes []byte) (sdk.TxResponse, error) {
 	return res, err
 }
 
+// Log takes a string and logs the data
+func (c *Chain) Log(s string) {
+	c.logger.Info(s)
+}
+
+// Error takes an error, wraps it in the chainID and logs the error
+func (c *Chain) Error(err error) {
+	c.logger.Error(fmt.Sprintf("%s: err(%s)", c.ChainID, err.Error()))
+}
+
 // Subscribe returns channel of events given a query
-func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, error) {
-	return c.Client.Subscribe(context.Background(), c.ChainID, query)
+func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	eventChan, err := c.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber", c.ChainID), query)
+	return eventChan, cancel, err
 }
 
 // KeysDir returns the path to the keys for this chain
