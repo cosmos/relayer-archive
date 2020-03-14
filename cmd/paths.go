@@ -44,7 +44,8 @@ func pathsGenCmd() *cobra.Command {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
-			path := relayer.Path{
+			path := &relayer.Path{
+				Strategy: relayer.NewNaieveStrategy(),
 				Src: &relayer.PathEnd{
 					ChainID:      src,
 					ClientID:     randString(16),
@@ -95,7 +96,7 @@ func pathsDeleteCmd() *cobra.Command {
 	return cmd
 }
 
-func removePath(paths []relayer.Path, index int) []relayer.Path {
+func removePath(paths []*relayer.Path, index int) []*relayer.Path {
 	return append(paths[:index], paths[index+1:]...)
 }
 
@@ -173,15 +174,6 @@ func pathsAddCmd() *cobra.Command {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
-			path := relayer.Path{
-				Src: &relayer.PathEnd{
-					ChainID: src,
-				},
-				Dst: &relayer.PathEnd{
-					ChainID: dst,
-				},
-			}
-
 			var out *Config
 			file, err := cmd.Flags().GetString(flagFile)
 			if err != nil {
@@ -193,7 +185,7 @@ func pathsAddCmd() *cobra.Command {
 					return err
 				}
 			} else {
-				if out, err = userInputPathAdd(path, src, dst); err != nil {
+				if out, err = userInputPathAdd(src, dst); err != nil {
 					return err
 				}
 			}
@@ -206,7 +198,7 @@ func pathsAddCmd() *cobra.Command {
 
 func fileInputPathAdd(file string) (cfg *Config, err error) {
 	// If the user passes in a file, attempt to read the chain config from that file
-	p := relayer.Path{}
+	p := &relayer.Path{}
 	if _, err := os.Stat(file); err != nil {
 		return nil, err
 	}
@@ -228,11 +220,21 @@ func fileInputPathAdd(file string) (cfg *Config, err error) {
 	return cfg, nil
 }
 
-func userInputPathAdd(path relayer.Path, src, dst string) (*Config, error) {
+func userInputPathAdd(src, dst string) (*Config, error) {
 	var (
 		value string
 		err   error
+		path  = &relayer.Path{
+			Strategy: relayer.NewNaieveStrategy(),
+			Src: &relayer.PathEnd{
+				ChainID: src,
+			},
+			Dst: &relayer.PathEnd{
+				ChainID: dst,
+			},
+		}
 	)
+
 	fmt.Printf("enter src(%s) client-id...\n", src)
 	if value, err = readStdin(); err != nil {
 		return nil, err

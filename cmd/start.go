@@ -16,7 +16,6 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
@@ -38,53 +37,17 @@ var startCmd = &cobra.Command{
 			return err
 		}
 
-		if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
-			return err
-		}
-
-		events := "tm.event = 'Tx'"
-
-		srcEvents, srcCancel, err := chains[src].Subscribe(events)
+		path, err := setPathsFromArgs(chains[src], chains[dst], args)
 		if err != nil {
 			return err
 		}
-		defer srcCancel()
 
-		dstEvents, dstCancel, err := chains[dst].Subscribe(events)
+		strategy, err := path.GetStrategy()
 		if err != nil {
-			return err
+			return nil
 		}
-		defer dstCancel()
 
-		done := trapSignal()
-		defer close(done)
-
-		for {
-			select {
-			case srcMsg := <-srcEvents:
-				byt, err := json.Marshal(srcMsg.Events)
-				if err != nil {
-					chains[src].Error(err)
-				}
-				chains[src].Log(string(byt))
-			case dstMsg := <-dstEvents:
-				byt, err := json.Marshal(dstMsg.Events)
-				if err != nil {
-					chains[dst].Error(err)
-				}
-				chains[dst].Log(string(byt))
-			default:
-				// NOTE: This causes the for loop to run continuously
-			}
-
-			// If there done channel msg, quit
-			if len(done) > 0 {
-				<-done
-				fmt.Println("shutdown activated")
-				break
-			}
-		}
-		return nil
+		return strategy.Run(chains[src], chains[dst])
 	},
 }
 

@@ -59,6 +59,8 @@ func newRPCClient(addr string) (*rpcclient.HTTP, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: Replace with the global timeout value?
 	httpClient.Timeout = 5 * time.Second
 	rpcClient, err := rpcclient.NewHTTPWithClient(addr, "/websocket", httpClient)
 	if err != nil {

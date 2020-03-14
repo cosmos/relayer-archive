@@ -54,7 +54,7 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
 				return err
 			}
 
@@ -82,7 +82,7 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
 				return err
 			}
 
@@ -111,7 +111,7 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
 				return err
 			}
 
@@ -139,7 +139,7 @@ func fullPathCmd() *cobra.Command {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
 				return err
 			}
 
@@ -162,40 +162,40 @@ func fullPathCmd() *cobra.Command {
 	return timeoutFlag(transactionFlags(cmd))
 }
 
-func setPathsFromArgs(src, dst *relayer.Chain, args []string) error {
+func setPathsFromArgs(src, dst *relayer.Chain, args []string) (*relayer.Path, error) {
 	// Find any configured paths between the chains
 	paths, err := config.Paths.PathsFromChains(src.ChainID, dst.ChainID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Given the number of args and the number of paths,
 	// work on the appropriate path
-	var path relayer.Path
+	var path *relayer.Path
 	switch {
 	case len(args) == 3 && len(paths) > 1:
 		i, err := strconv.ParseInt(args[2], 10, 64)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		path = paths[i]
 	case len(args) == 3 && len(paths) == 1:
 		fmt.Println(paths.MustYAML())
-		return fmt.Errorf("passed in an index where only one path exists between chains %s and %s", src, dst)
+		return nil, fmt.Errorf("passed in an index where only one path exists between chains %s and %s", src, dst)
 	case len(args) == 2 && len(paths) > 1:
 		fmt.Println(paths.MustYAML())
-		return fmt.Errorf("more than one path between %s and %s exists, please specify index", src, dst)
+		return nil, fmt.Errorf("more than one path between %s and %s exists, please specify index", src, dst)
 	case len(args) == 2 && len(paths) == 1:
 		path = paths[0]
 	}
 
 	if err = src.SetPath(path.End(src.ChainID), relayer.FULLPATH); err != nil {
-		return src.ErrCantSetPath(relayer.FULLPATH, err)
+		return nil, src.ErrCantSetPath(relayer.FULLPATH, err)
 	}
 
 	if err = dst.SetPath(path.End(dst.ChainID), relayer.FULLPATH); err != nil {
-		return dst.ErrCantSetPath(relayer.FULLPATH, err)
+		return nil, dst.ErrCantSetPath(relayer.FULLPATH, err)
 	}
 
-	return nil
+	return path, nil
 }

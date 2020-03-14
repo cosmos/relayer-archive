@@ -24,7 +24,7 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			if err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], args); err != nil {
 				return err
 			}
 

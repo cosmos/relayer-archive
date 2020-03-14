@@ -160,7 +160,6 @@ func defaultConfig() []byte {
 
 // GlobalConfig describes any global relayer settings
 type GlobalConfig struct {
-	Strategy      string `yaml:"strategy" json:"strategy"`
 	Timeout       string `yaml:"timeout" json:"timeout"`
 	LiteCacheSize int    `yaml:"lite-cache-size" json:"lite-cache-size"`
 }
@@ -168,8 +167,7 @@ type GlobalConfig struct {
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig() GlobalConfig {
 	return GlobalConfig{
-		Strategy:      "naieve",
-		Timeout:       "10s",
+		Timeout:       "5s",
 		LiteCacheSize: 20,
 	}
 }
@@ -210,9 +208,12 @@ func (c *Config) DeleteChain(chain string) *Config {
 }
 
 // AddPath adds a path to the config file
-func (c *Config) AddPath(path relayer.Path) (*Config, error) {
+func (c *Config) AddPath(path *relayer.Path) (*Config, error) {
 	if c.Paths.Duplicate(path) {
 		return nil, fmt.Errorf("an equivelent path exists in the config")
+	}
+	if err := path.Validate(); err != nil {
+		return nil, err
 	}
 	c.Paths = append(c.Paths, path)
 	return c, nil
