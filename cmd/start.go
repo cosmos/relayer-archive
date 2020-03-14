@@ -42,7 +42,7 @@ var startCmd = &cobra.Command{
 			return err
 		}
 
-		events := "tm.event = 'NewBlock'"
+		events := "tm.event = 'Tx'"
 
 		srcEvents, srcCancel, err := chains[src].Subscribe(events)
 		if err != nil {

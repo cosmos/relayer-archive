@@ -38,7 +38,7 @@ echo
 echo "Key $(relayer keys restore ibc0 testkey "$SEED0" -a) imported from ibc0 to relayer..."
 echo "Key $(relayer keys restore ibc1 testkey "$SEED1" -a) imported from ibc1 to relayer..."
 echo
-echo "Creating configured path between ibc0 and ibc1..."
+echo "Creating lite clients..."
 echo
 sleep 8
 relayer lite init ibc0 -f
