@@ -49,6 +49,12 @@ func outputFlags(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
+func chainsAddFlags(cmd *cobra.Command) *cobra.Command {
+	fileFlag(cmd)
+	urlFlag(cmd)
+	return cmd
+}
+
 func addressFlag(cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagAddress, "a", false, "returns just the address of the flag, useful for scripting")
 	viper.BindPFlag(flagAddress, cmd.Flags().Lookup(flagAddress))

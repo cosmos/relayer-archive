@@ -148,7 +148,7 @@ func chainsAddCmd() *cobra.Command {
 		},
 	}
 
-	return fileFlag(cmd)
+	return chainsAddFlags(cmd)
 }
 
 func fileInputAdd(file string) (cfg *Config, err error) {
