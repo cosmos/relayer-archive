@@ -157,6 +157,10 @@ func (c *Chain) Error(err error) {
 
 // Subscribe returns channel of events given a query
 func (c *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
+	if err := c.Client.OnStart(); err != nil {
+		return nil, nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	eventChan, err := c.Client.Subscribe(ctx, fmt.Sprintf("%s-subscriber", c.ChainID), query)
 	return eventChan, cancel, err

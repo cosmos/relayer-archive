@@ -29,7 +29,7 @@ import (
 // NOTE: This is basically psuedocode
 var startCmd = &cobra.Command{
 	Use:   "start [src-chain-id] [dst-chain-id] [index]",
-	Short: "starts the relayer using the configured chains and strategy",
+	Short: "TODO: This cmd is wip right now",
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		src, dst := args[0], args[1]
@@ -56,14 +56,10 @@ var startCmd = &cobra.Command{
 		}
 		defer dstCancel()
 
-		var sigCh = make(chan os.Signal)
-		defer close(sigCh)
-
-		signal.Notify(sigCh, syscall.SIGTERM)
-		signal.Notify(sigCh, syscall.SIGINT)
+		done := trapSignal()
+		defer close(done)
 
 		for {
-			fmt.Println("FOR LOOP ITER")
 			select {
 			case srcMsg := <-srcEvents:
 				byt, err := json.Marshal(srcMsg.Events)
@@ -77,13 +73,33 @@ var startCmd = &cobra.Command{
 					chains[dst].Error(err)
 				}
 				chains[dst].Log(string(byt))
-			case sig := <-sigCh:
-				fmt.Println("Shutdown actived:", sig.String())
+			default:
+				// NOTE: This causes the for loop to run continuously
+			}
+
+			// If there done channel msg, quit
+			if len(done) > 0 {
+				<-done
+				fmt.Println("shutdown activated")
 				break
 			}
-			break
 		}
-
 		return nil
 	},
+}
+
+func trapSignal() chan bool {
+	sigCh := make(chan os.Signal, 1)
+	done := make(chan bool, 1)
+
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigCh
+		fmt.Println("Signal Recieved:", sig.String())
+		close(sigCh)
+		done <- true
+	}()
+
+	return done
 }
