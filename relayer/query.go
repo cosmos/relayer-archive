@@ -147,17 +147,16 @@ func QueryClientConsensusStatePair(src, dst *Chain, srcH, dstH, srcClientConsH, 
 func qClntConsStateErr(err error) error { return fmt.Errorf("query client cons state failed: %w", err) }
 
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientState(height int64) (clientTypes.StateResponse, error) {
+func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 	var conStateRes clientTypes.StateResponse
 	if !c.PathSet() {
 		return conStateRes, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
-		Path:   "store/ibc/key",
-		Height: height,
-		Data:   ibctypes.KeyClientState(c.PathEnd.ClientID),
-		Prove:  true,
+		Path:  "store/ibc/key",
+		Data:  ibctypes.KeyClientState(c.PathEnd.ClientID),
+		Prove: true,
 	}
 
 	res, err := c.QueryABCI(req)
@@ -183,7 +182,7 @@ type cstates struct {
 }
 
 // QueryClientStatePair returns a pair of connection responses
-func QueryClientStatePair(src, dst *Chain, srcH, dstH int64) (map[string]clientTypes.StateResponse, error) {
+func QueryClientStatePair(src, dst *Chain) (map[string]clientTypes.StateResponse, error) {
 	hs := &cstates{
 		Map:  make(map[string]clientTypes.StateResponse),
 		Errs: []error{},
@@ -191,22 +190,19 @@ func QueryClientStatePair(src, dst *Chain, srcH, dstH int64) (map[string]clientT
 
 	var wg sync.WaitGroup
 
-	chps := []chpair{
-		chpair{src, srcH},
-		chpair{dst, dstH},
-	}
+	chps := []*Chain{src, dst}
 
 	for _, chain := range chps {
 		wg.Add(1)
-		go func(hs *cstates, wg *sync.WaitGroup, chp chpair) {
-			conn, err := chp.c.QueryClientState(chp.h)
+		go func(hs *cstates, wg *sync.WaitGroup, c *Chain) {
+			conn, err := c.QueryClientState()
 			if err != nil {
 				hs.Lock()
 				hs.Errs = append(hs.Errs, err)
 				hs.Unlock()
 			}
 			hs.Lock()
-			hs.Map[chp.c.ChainID] = conn
+			hs.Map[c.ChainID] = conn
 			hs.Unlock()
 			wg.Done()
 		}(hs, &wg, chain)

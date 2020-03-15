@@ -18,7 +18,7 @@ echo "Generating relayer configuration..."
 $RELAYER --home $RLY_CONF config init
 $RELAYER --home $RLY_CONF chains add -f demo/ibc0.json
 $RELAYER --home $RLY_CONF chains add -f demo/ibc1.json
-$RELAYER --home $RLY_CONF paths add ibc0 ibc1 -f demo/path.json
+$RELAYER --home $RLY_CONF paths add ibc0 ibc1 demopath -f demo/path.json
 
 echo "Generating gaia configurations..."
 cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets

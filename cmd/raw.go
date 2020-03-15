@@ -159,7 +159,7 @@ func connTry() *cobra.Command {
 			}
 
 			// We are querying the state of the client for src on dst and finding the height
-			dstClientState, err := chains[dst].QueryClientState(hs[dst].Height)
+			dstClientState, err := chains[dst].QueryClientState()
 			if err != nil {
 				return err
 			}
@@ -215,7 +215,7 @@ func connAck() *cobra.Command {
 			}
 
 			// We are querying the state of the client for src on dst and finding the height
-			dstClientState, err := chains[dst].QueryClientState(hs[dst].Height)
+			dstClientState, err := chains[dst].QueryClientState()
 			if err != nil {
 				return err
 			}
