@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authTypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientExported "github.com/cosmos/cosmos-sdk/x/ibc/02-client/exported"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
@@ -33,6 +34,35 @@ import (
 // These functions by convention are named Query*
 
 // TODO: Validate all info coming back from these queries using the verifier
+
+// QueryBalance returns the amount of coins in the relayer account
+func (c *Chain) QueryBalance() (sdk.Coins, error) {
+	var (
+		bz    []byte
+		err   error
+		coins sdk.Coins
+		route = fmt.Sprintf("custom/%s/%s", bankTypes.QuerierRoute, bankTypes.QueryAllBalances)
+		addr  = c.MustGetAddress()
+	)
+
+	if bz, err = c.Cdc.MarshalJSON(bankTypes.NewQueryAllBalancesParams(addr)); err != nil {
+		return nil, qBalErr(addr, err)
+	}
+
+	if bz, _, err = c.QueryWithData(route, bz); err != nil {
+		return nil, qBalErr(addr, err)
+	}
+
+	if err = c.Cdc.UnmarshalJSON(bz, &coins); err != nil {
+		return nil, qBalErr(addr, err)
+	}
+
+	return coins, nil
+}
+
+func qBalErr(acc sdk.AccAddress, err error) error {
+	return fmt.Errorf("query balance for acct %s failed: %w", acc.String(), err)
+}
 
 //////////////////////////////
 //    ICS 02 -> CLIENTS     //
