@@ -6,7 +6,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	rpcclient "github.com/tendermint/tendermint/rpc/client"
 )
 
 var (
@@ -96,14 +95,16 @@ func urlFlag(cmd *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func getURL(cmd *cobra.Command) (out string, err error) {
-	if out, err = cmd.Flags().GetString(flagURL); err != nil {
+func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
+	file, err = cmd.Flags().GetString(flagFile)
+	if err != nil {
 		return
 	}
-	if len(out) > 0 {
-		if _, err = rpcclient.NewHTTP(out, "/websocket"); err != nil {
-			return
-		}
+
+	url, err = cmd.Flags().GetString(flagURL)
+	if err != nil {
+		return
 	}
-	return
+
+	return file, url, nil
 }
