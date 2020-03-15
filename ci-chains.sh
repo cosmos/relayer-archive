@@ -15,7 +15,7 @@ killall gaiad
 set -e
 
 echo "Generating relayer configuration..."
-$RELAYER --home $RLY_CONF init
+$RELAYER --home $RLY_CONF config init
 $RELAYER --home $RLY_CONF chains add -f demo/ibc0.json
 $RELAYER --home $RLY_CONF chains add -f demo/ibc1.json
 $RELAYER --home $RLY_CONF paths add ibc0 ibc1 -f demo/path.json
