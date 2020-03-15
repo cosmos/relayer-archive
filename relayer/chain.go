@@ -97,7 +97,7 @@ func (c *Chain) getGasPrices() sdk.DecCoins {
 	return gp
 }
 
-func (c *Chain) getTrustingPeriod() time.Duration {
+func (c *Chain) GetTrustingPeriod() time.Duration {
 	tp, _ := time.ParseDuration(c.TrustingPeriod)
 	return tp
 }
@@ -117,6 +117,20 @@ func newRPCClient(addr string, timeout time.Duration) (*rpcclient.HTTP, error) {
 
 	return rpcClient, nil
 
+}
+
+// SendMsg wraps the msg in a stdtx, signs and sends it
+func (src *Chain) SendMsg(datagram sdk.Msg) (sdk.TxResponse, error) {
+	return src.SendMsgs([]sdk.Msg{datagram})
+}
+
+// SendMsgs wraps the msgs in a stdtx, signs and sends it
+func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) {
+	var out []byte
+	if out, err = src.BuildAndSignTx(datagrams); err != nil {
+		return res, err
+	}
+	return src.BroadcastTxCommit(out)
 }
 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast

@@ -9,8 +9,6 @@ import (
 	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
-	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	xferTypes "github.com/cosmos/cosmos-sdk/x/ibc/20-transfer/types"
 	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 	"github.com/spf13/cobra"
 )
@@ -35,7 +33,7 @@ func (src *Chain) CreateClients(dst *Chain, cmd *cobra.Command) (err error) {
 		if err != nil {
 			return err
 		}
-		clients.Src = append(clients.Src, src.CreateClient(dstH))
+		clients.Src = append(clients.Src, src.PathEnd.CreateClient(dstH, src.GetTrustingPeriod(), src.MustGetAddress()))
 	}
 	// TODO: maybe log something here that the client has been created?
 
@@ -47,7 +45,7 @@ func (src *Chain) CreateClients(dst *Chain, cmd *cobra.Command) (err error) {
 		if err != nil {
 			return err
 		}
-		clients.Dst = append(clients.Dst, dst.CreateClient(srcH))
+		clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, dst.GetTrustingPeriod(), dst.MustGetAddress()))
 	}
 	// TODO: maybe log something here that the client has been created?
 
@@ -135,48 +133,48 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
 	case srcEnd.Connection.State == connState.UNINITIALIZED && dstEnd.Connection.State == connState.UNINITIALIZED:
-		out.Src = append(out.Src, src.ConnInit(dst))
+		out.Src = append(out.Src, src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()))
 
 	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
 	case srcEnd.Connection.State == connState.UNINITIALIZED && dstEnd.Connection.State == connState.INIT:
 		out.Src = append(out.Src,
-			src.UpdateClient(hs[dst.ChainID]),
-			src.ConnTry(dst, dstEnd, dstCons, dstConsH),
+			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
+			src.PathEnd.ConnTry(dst.PathEnd, dstEnd, dstCons, dstConsH, src.MustGetAddress()),
 		)
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.UNINITIALIZED:
 		out.Dst = append(out.Dst,
-			dst.UpdateClient(hs[src.ChainID]),
-			dst.ConnTry(src, srcEnd, srcCons, srcConsH),
+			dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
+			dst.PathEnd.ConnTry(src.PathEnd, srcEnd, srcCons, srcConsH, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
 	case srcEnd.Connection.State == connState.TRYOPEN && dstEnd.Connection.State == connState.INIT:
 		out.Dst = append(out.Dst,
-			dst.UpdateClient(hs[src.ChainID]),
-			dst.ConnAck(srcEnd, srcCons, srcConsH),
+			dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
+			dst.PathEnd.ConnAck(srcEnd, srcCons, srcConsH, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
 	case srcEnd.Connection.State == connState.INIT && dstEnd.Connection.State == connState.TRYOPEN:
 		out.Src = append(out.Src,
-			src.UpdateClient(hs[dst.ChainID]),
-			src.ConnAck(dstEnd, dstCons, dstConsH),
+			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
+			src.PathEnd.ConnAck(dstEnd, dstCons, dstConsH, src.MustGetAddress()),
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
 	case srcEnd.Connection.State == connState.TRYOPEN && dstEnd.Connection.State == connState.OPEN:
 		out.Src = append(out.Src,
-			src.UpdateClient(hs[dst.ChainID]),
-			src.ConnConfirm(dstEnd),
+			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
+			src.PathEnd.ConnConfirm(dstEnd, src.MustGetAddress()),
 		)
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
 	case srcEnd.Connection.State == connState.OPEN && dstEnd.Connection.State == connState.TRYOPEN:
 		out.Dst = append(out.Dst,
-			dst.UpdateClient(hs[src.ChainID]),
-			dst.ConnConfirm(srcEnd),
+			dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
+			dst.PathEnd.ConnConfirm(srcEnd, dst.MustGetAddress()),
 		)
 	}
 
@@ -244,290 +242,51 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
 	case srcEnd.Channel.State == chanState.UNINITIALIZED && dstEnd.Channel.State == chanState.UNINITIALIZED:
 		out.Src = append(out.Src,
-			src.ChanInit(dst, ordering),
+			src.PathEnd.ChanInit(dst.PathEnd, ordering, src.MustGetAddress()),
 		)
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src
 	case srcEnd.Channel.State == chanState.UNINITIALIZED && dstEnd.Channel.State == chanState.INIT:
 		out.Src = append(out.Src,
-			src.UpdateClient(hs[dst.ChainID]),
-			src.ChanTry(dst, dstEnd),
+			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
+			src.PathEnd.ChanTry(dst.PathEnd, dstEnd, src.MustGetAddress()),
 		)
 
 	// Handshake has started on src (1 step done), relay `chanOpenTry` and `updateClient` to dst
 	case srcEnd.Channel.State == chanState.INIT && dstEnd.Channel.State == chanState.UNINITIALIZED:
 		out.Dst = append(out.Dst,
-			dst.UpdateClient(hs[src.ChainID]),
-			dst.ChanTry(src, srcEnd),
+			dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
+			dst.PathEnd.ChanTry(src.PathEnd, srcEnd, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on src (2 steps done), relay `chanOpenAck` and `updateClient` to dst
 	case srcEnd.Channel.State == chanState.TRYOPEN && dstEnd.Channel.State == chanState.INIT:
 		out.Dst = append(out.Dst,
-			dst.UpdateClient(hs[src.ChainID]),
-			dst.ChanAck(srcEnd),
+			dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
+			dst.PathEnd.ChanAck(srcEnd, dst.MustGetAddress()),
 		)
 
 	// Handshake has started on dst (2 steps done), relay `chanOpenAck` and `updateClient` to src
 	case srcEnd.Channel.State == chanState.INIT && dstEnd.Channel.State == chanState.TRYOPEN:
 		out.Src = append(out.Src,
-			src.UpdateClient(hs[dst.ChainID]),
-			src.ChanAck(dstEnd),
+			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
+			src.PathEnd.ChanAck(dstEnd, src.MustGetAddress()),
 		)
 
 	// Handshake has confirmed on dst (3 steps done), relay `chanOpenConfirm` and `updateClient` to src
 	case srcEnd.Channel.State == chanState.TRYOPEN && dstEnd.Channel.State == chanState.OPEN:
 		out.Src = append(out.Src,
-			src.UpdateClient(hs[dst.ChainID]),
-			src.ChanConfirm(dstEnd),
+			src.PathEnd.UpdateClient(hs[dst.ChainID], src.MustGetAddress()),
+			src.PathEnd.ChanConfirm(dstEnd, src.MustGetAddress()),
 		)
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
 	case srcEnd.Channel.State == chanState.OPEN && dstEnd.Channel.State == chanState.TRYOPEN:
 		out.Dst = append(out.Dst,
-			dst.UpdateClient(hs[src.ChainID]),
-			dst.ChanConfirm(srcEnd),
+			dst.PathEnd.UpdateClient(hs[src.ChainID], dst.MustGetAddress()),
+			dst.PathEnd.ChanConfirm(srcEnd, dst.MustGetAddress()),
 		)
 	}
 
 	return out, nil
-}
-
-// UpdateClient creates an sdk.Msg to update the client on c with data pulled from cp
-func (src *Chain) UpdateClient(dstHeader *tmclient.Header) sdk.Msg {
-	return tmclient.NewMsgUpdateClient(
-		src.PathEnd.ClientID,
-		*dstHeader,
-		src.MustGetAddress(),
-	)
-}
-
-// CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
-func (src *Chain) CreateClient(dstHeader *tmclient.Header) sdk.Msg {
-	if err := dstHeader.ValidateBasic(dstHeader.ChainID); err != nil {
-		panic(err)
-	}
-	// TODO: figure out how to dynmaically set unbonding time
-	return tmclient.NewMsgCreateClient(
-		src.PathEnd.ClientID,
-		*dstHeader,
-		src.getTrustingPeriod(),
-		defaultUnbondingTime,
-		src.MustGetAddress(),
-	)
-}
-
-// ConnInit creates a MsgConnectionOpenInit
-func (src *Chain) ConnInit(dst *Chain) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenInit(
-		src.PathEnd.ConnectionID,
-		src.PathEnd.ClientID,
-		dst.PathEnd.ConnectionID,
-		dst.PathEnd.ClientID,
-		defaultChainPrefix,
-		src.MustGetAddress(),
-	)
-}
-
-// ConnTry creates a MsgConnectionOpenTry
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *Chain) ConnTry(dst *Chain, dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenTry(
-		src.PathEnd.ConnectionID,
-		src.PathEnd.ClientID,
-		dst.PathEnd.ConnectionID,
-		dst.PathEnd.ClientID,
-		defaultChainPrefix,
-		defaultIBCVersions,
-		dstConnState.Proof,
-		dstConsState.Proof,
-		dstConnState.ProofHeight+1,
-		uint64(dstCsHeight),
-		src.MustGetAddress(),
-	)
-}
-
-// ConnAck creates a MsgConnectionOpenAck
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *Chain) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsState clientTypes.ConsensusStateResponse, dstCsHeight int64) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenAck(
-		src.PathEnd.ConnectionID,
-		dstConnState.Proof,
-		dstConsState.Proof,
-		dstConnState.ProofHeight+1,
-		uint64(dstCsHeight),
-		defaultIBCVersion,
-		src.MustGetAddress(),
-	)
-}
-
-// ConnConfirm creates a MsgConnectionOpenAck
-// NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
-func (src *Chain) ConnConfirm(dstConnState connTypes.ConnectionResponse) sdk.Msg {
-	return connTypes.NewMsgConnectionOpenConfirm(
-		src.PathEnd.ConnectionID,
-		dstConnState.Proof,
-		dstConnState.ProofHeight+1,
-		src.MustGetAddress(),
-	)
-}
-
-// ChanInit creates a MsgChannelOpenInit
-func (src *Chain) ChanInit(dst *Chain, ordering chanState.Order) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenInit(
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
-		defaultIBCVersion,
-		ordering,
-		[]string{src.PathEnd.ConnectionID},
-		dst.PathEnd.PortID,
-		dst.PathEnd.ChannelID,
-		src.MustGetAddress(),
-	)
-}
-
-// ChanTry creates a MsgChannelOpenTry
-func (src *Chain) ChanTry(dst *Chain, dstChanState chanTypes.ChannelResponse) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenTry(
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
-		defaultIBCVersion,
-		dstChanState.Channel.Ordering,
-		[]string{src.PathEnd.ConnectionID},
-		dst.PathEnd.PortID,
-		dst.PathEnd.ChannelID,
-		defaultIBCVersion,
-		dstChanState.Proof,
-		dstChanState.ProofHeight+1,
-		src.MustGetAddress(),
-	)
-}
-
-// ChanAck creates a MsgChannelOpenAck
-func (src *Chain) ChanAck(dstChanState chanTypes.ChannelResponse) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenAck(
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
-		dstChanState.Channel.GetVersion(),
-		dstChanState.Proof,
-		dstChanState.ProofHeight+1,
-		src.MustGetAddress(),
-	)
-}
-
-// ChanConfirm creates a MsgChannelOpenConfirm
-func (src *Chain) ChanConfirm(dstChanState chanTypes.ChannelResponse) sdk.Msg {
-	return chanTypes.NewMsgChannelOpenConfirm(
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
-		dstChanState.Proof,
-		dstChanState.ProofHeight+1,
-		src.MustGetAddress(),
-	)
-}
-
-// ChanCloseInit creates a MsgChannelCloseInit
-func (src *Chain) ChanCloseInit() sdk.Msg {
-	return chanTypes.NewMsgChannelCloseInit(
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
-		src.MustGetAddress(),
-	)
-}
-
-// ChanCloseConfirm creates a MsgChannelCloseConfirm
-func (src *Chain) ChanCloseConfirm(dstChanState chanTypes.ChannelResponse) sdk.Msg {
-	return chanTypes.NewMsgChannelCloseConfirm(
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
-		dstChanState.Proof,
-		dstChanState.ProofHeight+1,
-		src.MustGetAddress(),
-	)
-}
-
-// MsgRecvPacket creates a MsgPacket
-func (src *Chain) MsgRecvPacket(dst *Chain, sequence uint64, packetData chanState.PacketDataI, proof chanTypes.PacketResponse) sdk.Msg {
-	return chanTypes.NewMsgPacket(
-		src.NewPacket(
-			dst,
-			sequence,
-			packetData,
-		),
-		proof.Proof,
-		proof.ProofHeight+1,
-		src.MustGetAddress(),
-	)
-}
-
-// MsgTimeout creates MsgTimeout
-func (src *Chain) MsgTimeout(packet chanTypes.Packet, seq uint64, proof chanTypes.PacketResponse) sdk.Msg {
-	return chanTypes.NewMsgTimeout(
-		packet,
-		seq,
-		proof.Proof,
-		proof.ProofHeight+1,
-		src.MustGetAddress(),
-	)
-}
-
-// MsgAck creates MsgAck
-func (src *Chain) MsgAck(packet chanTypes.Packet, ack chanState.PacketAcknowledgementI, proof chanTypes.PacketResponse) sdk.Msg {
-	return chanTypes.NewMsgAcknowledgement(
-		packet,
-		ack,
-		proof.Proof,
-		proof.ProofHeight+1,
-		src.MustGetAddress(),
-	)
-}
-
-// MsgTransfer creates a new transfer message
-func (src *Chain) MsgTransfer(dst *Chain, dstHeight uint64, amount sdk.Coins, dstAddr sdk.AccAddress, source bool) sdk.Msg {
-	return xferTypes.NewMsgTransfer(
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
-		dstHeight,
-		amount,
-		src.MustGetAddress(),
-		dstAddr,
-		source,
-	)
-}
-
-// NewPacket returns a new packet from src to dist w
-func (src *Chain) NewPacket(dst *Chain, sequence uint64, packetData chanState.PacketDataI) chanTypes.Packet {
-	return chanTypes.NewPacket(
-		packetData,
-		sequence,
-		src.PathEnd.PortID,
-		src.PathEnd.ChannelID,
-		dst.PathEnd.PortID,
-		dst.PathEnd.ChannelID,
-	)
-}
-
-// XferPacket creates a new transfer packet
-func (src *Chain) XferPacket(amount sdk.Coins, sender, reciever sdk.AccAddress, source bool, timeout uint64) chanState.PacketDataI {
-	return xferTypes.NewFungibleTokenPacketData(
-		amount,
-		sender,
-		reciever,
-		source,
-		timeout,
-	)
-}
-
-// SendMsg wraps the msg in a stdtx, signs and sends it
-func (src *Chain) SendMsg(datagram sdk.Msg) (sdk.TxResponse, error) {
-	return src.SendMsgs([]sdk.Msg{datagram})
-}
-
-// SendMsgs wraps the msgs in a stdtx, signs and sends it
-func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) {
-	var out []byte
-	if out, err = src.BuildAndSignTx(datagrams); err != nil {
-		return res, err
-	}
-	return src.BroadcastTxCommit(out)
 }
