@@ -14,10 +14,11 @@ killall gaiad
 
 set -e
 
-echo "Generating relayer configurations..."
-mkdir -p $RLY_CONF/config
-echo "cp $(pwd)/two-chains.yaml $RLY_CONF/config/config.yaml"
-cp $(pwd)/two-chains.yaml $RLY_CONF/config/config.yaml
+echo "Generating relayer configuration..."
+$RELAYER --home $RLY_CONF init
+$RELAYER --home $RLY_CONF chains add -f demo/ibc0.json
+$RELAYER --home $RLY_CONF chains add -f demo/ibc1.json
+$RELAYER --home $RLY_CONF paths add ibc0 ibc1 -f demo/path.json
 
 echo "Generating gaia configurations..."
 cd $GAIA_CONF && mkdir ibc-testnets && cd ibc-testnets
