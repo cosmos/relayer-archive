@@ -39,7 +39,7 @@ func pathsGenCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			_, err := config.c.GetChains(src, dst)
+			_, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
@@ -169,7 +169,7 @@ func pathsAddCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			_, err := config.c.GetChains(src, dst)
+			_, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}

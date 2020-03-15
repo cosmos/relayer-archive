@@ -19,7 +19,7 @@ func xfer() *cobra.Command {
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -134,7 +134,7 @@ func xfersend() *cobra.Command {
 		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -192,7 +192,7 @@ func xferrecv() *cobra.Command {
 		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}

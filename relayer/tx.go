@@ -311,7 +311,7 @@ func (src *Chain) CreateClient(dstHeader *tmclient.Header) sdk.Msg {
 	return tmclient.NewMsgCreateClient(
 		src.PathEnd.ClientID,
 		*dstHeader,
-		src.TrustingPeriod,
+		src.getTrustingPeriod(),
 		defaultUnbondingTime,
 		src.MustGetAddress(),
 	)

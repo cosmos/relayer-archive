@@ -49,7 +49,7 @@ func updateClientCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -79,7 +79,7 @@ func createClientCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -108,7 +108,7 @@ func connInit() *cobra.Command {
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -134,7 +134,7 @@ func connTry() *cobra.Command {
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -190,7 +190,7 @@ func connAck() *cobra.Command {
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -246,7 +246,7 @@ func connConfirm() *cobra.Command {
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -290,7 +290,7 @@ func createConnectionStepCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(6),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -332,7 +332,7 @@ func chanInit() *cobra.Command {
 		Args:  cobra.ExactArgs(11),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(args[0], args[1])
+			chains, err := config.Chains.Gets(args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -363,7 +363,7 @@ func chanTry() *cobra.Command {
 		Args:  cobra.ExactArgs(8),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -404,7 +404,7 @@ func chanAck() *cobra.Command {
 		Args:  cobra.ExactArgs(7),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -445,7 +445,7 @@ func chanConfirm() *cobra.Command {
 		Args:  cobra.ExactArgs(7),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -487,7 +487,7 @@ func createChannelStepCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			ordering := chanState.OrderFromString(args[10])
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
@@ -528,7 +528,7 @@ func chanCloseInit() *cobra.Command {
 		Short: "chan-close-init",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			src, err := config.c.GetChain(args[0])
+			src, err := config.Chains.Get(args[0])
 			if err != nil {
 				return err
 			}
@@ -550,7 +550,7 @@ func chanCloseConfirm() *cobra.Command {
 		Args:  cobra.ExactArgs(7),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
-			chains, err := config.c.GetChains(src, dst)
+			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return err
 			}
