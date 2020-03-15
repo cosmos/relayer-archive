@@ -140,7 +140,7 @@ func chainsAddCmd() *cobra.Command {
 				}
 			}
 
-			if err = validateConfig(out, file, debug); err != nil {
+			if err = validateConfig(out); err != nil {
 				return err
 			}
 
