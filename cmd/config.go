@@ -188,24 +188,6 @@ func (c *Config) DeleteChain(chain string) *Config {
 	return c
 }
 
-// AddPath adds a path to the config file
-func (c *Config) AddPath(path *relayer.Path) (*Config, error) {
-	if c.Paths.Duplicate(path) {
-		return nil, fmt.Errorf("an equivelent path exists in the config")
-	}
-	if err := path.Validate(); err != nil {
-		return nil, err
-	}
-	c.Paths = append(c.Paths, path)
-	return c, nil
-}
-
-// DeletePath removes a path at index i
-func (c *Config) DeletePath(i int) *Config {
-	c.Paths = append(c.Paths[:i], c.Paths[i+1:]...)
-	return c
-}
-
 // Called to initialize the relayer.Chain types on Config
 func validateConfig(c *Config, home string) error {
 	var new = &Config{Global: c.Global, Chains: relayer.Chains{}, Paths: c.Paths}

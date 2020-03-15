@@ -72,8 +72,8 @@ func (c *Chain) QueryConsensusState(height int64) (*tmclient.ConsensusState, err
 // NOTE: dstHeight is the height from dst that is stored on src, it is needed to construct the appropriate store query
 func (c *Chain) QueryClientConsensusState(srcHeight, dstHeight int64) (clientTypes.ConsensusStateResponse, error) {
 	var conStateRes clientTypes.ConsensusStateResponse
-	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
-		return conStateRes, c.ErrPathNotSet(CLNTPATH, err)
+	if !c.PathSet() {
+		return conStateRes, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -104,8 +104,8 @@ func qClntConsStateErr(err error) error { return fmt.Errorf("query client cons s
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
 func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 	var conStateRes clientTypes.StateResponse
-	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
-		return conStateRes, c.ErrPathNotSet(CLNTPATH, err)
+	if !c.PathSet() {
+		return conStateRes, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -183,8 +183,8 @@ func qConnsErr(err error) error { return fmt.Errorf("query connections failed: %
 
 // QueryConnectionsUsingClient gets any connections that exist between chain and counterparty
 func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes.ClientConnectionsResponse, err error) {
-	if err := c.PathEnd.Validate(CLNTPATH); !c.PathSet() && err != nil {
-		return clientConns, c.ErrPathNotSet(CLNTPATH, err)
+	if !c.PathSet() {
+		return clientConns, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -213,8 +213,8 @@ func qConnsUsingClntsErr(err error) error {
 
 // QueryConnection returns the remote end of a given connection
 func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, error) {
-	if err := c.PathEnd.Validate(CONNPATH); !c.PathSet() && err != nil {
-		return connTypes.ConnectionResponse{}, c.ErrPathNotSet(CONNPATH, err)
+	if !c.PathSet() {
+		return connTypes.ConnectionResponse{}, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -250,8 +250,8 @@ var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.Connection
 
 // QueryChannel returns the channel associated with a channelID
 func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, err error) {
-	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
-		return chanRes, c.ErrPathNotSet(CHANPATH, err)
+	if !c.PathSet() {
+		return chanRes, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -308,8 +308,8 @@ func qChansErr(err error) error { return fmt.Errorf("query channels failed: %w",
 
 // QueryNextSeqRecv returns the next seqRecv for a configured channel
 func (c *Chain) QueryNextSeqRecv(height int64) (recvRes chanTypes.RecvResponse, err error) {
-	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
-		return recvRes, c.ErrPathNotSet(CHANPATH, err)
+	if !c.PathSet() {
+		return recvRes, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -338,8 +338,8 @@ func (c *Chain) QueryNextSeqRecv(height int64) (recvRes chanTypes.RecvResponse, 
 
 // QueryNextSeqSend returns the next seqSend for a configured channel
 func (c *Chain) QueryNextSeqSend(height int64) (uint64, error) {
-	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
-		return 0, c.ErrPathNotSet(CHANPATH, err)
+	if !c.PathSet() {
+		return 0, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -362,8 +362,8 @@ func (c *Chain) QueryNextSeqSend(height int64) (uint64, error) {
 
 // QueryPacketCommitment returns the packet commitment proof at a given height
 func (c *Chain) QueryPacketCommitment(height, seq int64) (comRes CommitmentResponse, err error) {
-	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
-		return comRes, c.ErrPathNotSet(CHANPATH, err)
+	if !c.PathSet() {
+		return comRes, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
@@ -409,8 +409,8 @@ type CommitmentResponse struct {
 
 // QueryPacketAck returns the packet commitment proof at a given height
 func (c *Chain) QueryPacketAck(height, seq int64) (comRes CommitmentResponse, err error) {
-	if err := c.PathEnd.Validate(CHANPATH); !c.PathSet() && err != nil {
-		return comRes, c.ErrPathNotSet(CHANPATH, err)
+	if !c.PathSet() {
+		return comRes, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{

@@ -54,8 +54,8 @@ func updateClientCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathClient(args[2]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CLNTPATH, err)
+			if err = chains[src].AddPath(args[2], dcon, dcha, dpor); err != nil {
+				return err
 			}
 			if err != nil {
 				return err
@@ -89,8 +89,7 @@ func createClientCmd() *cobra.Command {
 				return err
 			}
 
-			err = chains[src].PathClient(args[2])
-			if err != nil {
+			if err = chains[src].AddPath(args[2], dcon, dcha, dpor); err != nil {
 				return err
 			}
 
@@ -113,12 +112,12 @@ func connInit() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathConnection(args[2], args[4]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathConnection(args[3], args[5]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+				return err
 			}
 
 			return SendAndPrint([]sdk.Msg{chains[src].ConnInit(chains[dst])}, chains[src], cmd)
@@ -139,12 +138,12 @@ func connTry() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathConnection(args[2], args[4]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathConnection(args[3], args[5]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+				return err
 			}
 
 			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
@@ -195,12 +194,12 @@ func connAck() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathConnection(args[2], args[4]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathConnection(args[3], args[5]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+				return err
 			}
 
 			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
@@ -251,12 +250,12 @@ func connConfirm() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathConnection(args[2], args[4]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathConnection(args[3], args[5]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+				return err
 			}
 
 			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
@@ -295,12 +294,12 @@ func createConnectionStepCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathConnection(args[2], args[4]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[src].AddPath(args[2], args[4], dcha, dpor); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathConnection(args[3], args[5]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CONNPATH, err)
+			if err = chains[dst].AddPath(args[3], args[5], dcha, dpor); err != nil {
+				return err
 			}
 
 			msgs, err := chains[src].CreateConnectionStep(chains[dst])
@@ -337,12 +336,12 @@ func chanInit() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].FullPath(args[2], args[4], args[6], args[8]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.FULLPATH, err)
+			if err = chains[src].AddPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
 			}
 
-			if err = chains[dst].FullPath(args[3], args[5], args[7], args[9]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.FULLPATH, err)
+			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9]); err != nil {
+				return err
 			}
 
 			var order chanState.Order
@@ -368,12 +367,12 @@ func chanTry() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].FullPath(args[2], args[3], args[4], args[6]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.FULLPATH, err)
+			if err = chains[src].AddPath(args[2], args[3], args[4], args[6]); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathChannel(args[5], args[7]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chains[dst].AddPath(dcli, dcon, args[5], args[7]); err != nil {
+				return err
 			}
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()
@@ -409,12 +408,12 @@ func chanAck() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathChannelClient(args[2], args[3], args[5]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
+			if err = chains[src].AddPath(args[2], dcon, args[3], args[5]); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathChannel(args[4], args[6]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6]); err != nil {
+				return err
 			}
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()
@@ -450,12 +449,12 @@ func chanConfirm() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathChannelClient(args[2], args[3], args[5]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
+			if err = chains[src].AddPath(args[2], dcon, args[3], args[5]); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathChannel(args[4], args[6]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6]); err != nil {
+				return err
 			}
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()
@@ -492,12 +491,12 @@ func createChannelStepCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].FullPath(args[2], args[4], args[6], args[8]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.FULLPATH, err)
+			if err = chains[src].AddPath(args[2], args[4], args[6], args[8]); err != nil {
+				return err
 			}
 
-			if err = chains[dst].FullPath(args[3], args[5], args[7], args[9]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.FULLPATH, err)
+			if err = chains[dst].AddPath(args[3], args[5], args[7], args[9]); err != nil {
+				return err
 			}
 
 			msgs, err := chains[src].CreateChannelStep(chains[dst], ordering)
@@ -533,8 +532,8 @@ func chanCloseInit() *cobra.Command {
 				return err
 			}
 
-			if err := src.PathChannel(args[1], args[2]); err != nil {
-				return src.ErrCantSetPath(relayer.CHANPATH, err)
+			if err := src.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+				return err
 			}
 
 			return SendAndPrint([]sdk.Msg{src.ChanCloseInit()}, src, cmd)
@@ -555,12 +554,12 @@ func chanCloseConfirm() *cobra.Command {
 				return err
 			}
 
-			if err = chains[src].PathChannelClient(args[2], args[3], args[5]); err != nil {
-				return chains[src].ErrCantSetPath(relayer.CLNTCHANPATH, err)
+			if err = chains[src].AddPath(args[2], dcon, args[3], args[5]); err != nil {
+				return err
 			}
 
-			if err = chains[dst].PathChannel(args[4], args[6]); err != nil {
-				return chains[dst].ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chains[dst].AddPath(dcli, dcon, args[4], args[6]); err != nil {
+				return err
 			}
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()

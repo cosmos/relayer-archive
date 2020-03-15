@@ -239,8 +239,8 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			if err = chain.PathClient(args[1]); err != nil {
-				return chain.ErrCantSetPath(relayer.CLNTPATH, err)
+			if err = chain.AddPath(args[1], dcon, dcha, dpor); err != nil {
+				return err
 			}
 
 			res, err := chain.QueryClientState()
@@ -312,8 +312,8 @@ func queryConnectionsUsingClient() *cobra.Command {
 				return err
 			}
 
-			if err := chain.PathConnection(args[1], "passesvalidation"); err != nil {
-				return chain.ErrCantSetPath(relayer.CONNPATH, err)
+			if err := chain.AddPath(args[1], dcon, dcha, dpor); err != nil {
+				return err
 			}
 
 			height, err := chain.QueryLatestHeight()
@@ -344,8 +344,8 @@ func queryConnection() *cobra.Command {
 				return err
 			}
 
-			if err := chain.PathConnection("passesvalidation", args[1]); err != nil {
-				return chain.ErrCantSetPath(relayer.CONNPATH, err)
+			if err := chain.AddPath(dcli, args[1], dcon, dpor); err != nil {
+				return err
 			}
 
 			height, err := chain.QueryLatestHeight()
@@ -376,8 +376,8 @@ func queryChannel() *cobra.Command {
 				return err
 			}
 
-			if err = chain.PathChannel(args[1], args[2]); err != nil {
-				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chain.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+				return err
 			}
 
 			height, err := chain.QueryLatestHeight()
@@ -431,8 +431,8 @@ func queryNextSeqRecv() *cobra.Command {
 				return err
 			}
 
-			if err = chain.PathChannel(args[1], args[2]); err != nil {
-				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chain.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+				return err
 			}
 
 			height, err := chain.QueryLatestHeight()
@@ -463,8 +463,8 @@ func queryPacketCommitment() *cobra.Command {
 				return err
 			}
 
-			if err = chain.PathChannel(args[1], args[2]); err != nil {
-				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chain.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+				return err
 			}
 
 			height, err := chain.QueryLatestHeight()
@@ -500,8 +500,8 @@ func queryPacketAck() *cobra.Command {
 				return err
 			}
 
-			if err = chain.PathChannel(args[1], args[2]); err != nil {
-				return chain.ErrCantSetPath(relayer.CHANPATH, err)
+			if err = chain.AddPath(dcli, dcon, args[1], args[2]); err != nil {
+				return err
 			}
 
 			height, err := chain.QueryLatestHeight()
