@@ -8,7 +8,6 @@ import (
 	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
 	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -19,7 +18,7 @@ var (
 )
 
 // CreateClients creates clients for src on dst and dst on src given the configured paths
-func (src *Chain) CreateClients(dst *Chain, cmd *cobra.Command) (err error) {
+func (src *Chain) CreateClients(dst *Chain) (err error) {
 	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
 	// Create client for dst on src if it doesn't exist
@@ -48,7 +47,7 @@ func (src *Chain) CreateClients(dst *Chain, cmd *cobra.Command) (err error) {
 	// TODO: maybe log something here that the client has been created?
 
 	// Send msgs to both chains
-	if err = clients.Send(src, dst, cmd); err != nil {
+	if err = clients.Send(src, dst); err != nil {
 		return err
 	}
 
@@ -57,7 +56,7 @@ func (src *Chain) CreateClients(dst *Chain, cmd *cobra.Command) (err error) {
 
 // CreateConnection runs the connection creation messages on timeout until they pass
 // TODO: add max retries or something to this function
-func (src *Chain) CreateConnection(dst *Chain, to time.Duration, cmd *cobra.Command) error {
+func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 	ticker := time.NewTicker(to)
 	for ; true; <-ticker.C {
 		connSteps, err := src.CreateConnectionStep(dst)
@@ -69,7 +68,7 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration, cmd *cobra.Comm
 			break
 		}
 
-		if err = connSteps.Send(src, dst, cmd); err != nil {
+		if err = connSteps.Send(src, dst); err != nil {
 			return err
 		}
 	}
@@ -176,7 +175,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 // CreateChannel runs the channel creation messages on timeout until they pass
 // TODO: add max retries or something to this function
-func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration, cmd *cobra.Command) error {
+func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) error {
 	var order chanState.Order
 	if ordered {
 		order = chanState.ORDERED
@@ -195,7 +194,7 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration, cmd 
 			break
 		}
 
-		if err = chanSteps.Send(src, dst, cmd); err != nil {
+		if err = chanSteps.Send(src, dst); err != nil {
 			return err
 		}
 	}

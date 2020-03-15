@@ -63,7 +63,7 @@ $RELAYER --home $RLY_CONF lite init $c0 -f
 $RELAYER --home $RLY_CONF lite init $c1 -f
 
 echo "Create clients"
-$RELAYER --home $RLY_CONF tx clients $c0 $c1
+$RELAYER --home $RLY_CONF tx clients -d $c0 $c1
 
 echo "Query headers"
 $RELAYER --home $RLY_CONF q header $c0   
@@ -78,7 +78,7 @@ $RELAYER --home $RLY_CONF q clients $c0
 $RELAYER --home $RLY_CONF q clients $c1
 
 echo "Creating connection..."
-$RELAYER --home $RLY_CONF tx connection $c0 $c1
+$RELAYER --home $RLY_CONF tx connection -d $c0 $c1
 
 echo "Creating channel..."
-$RELAYER --home $RLY_CONF tx channel $c0 $c1
+$RELAYER --home $RLY_CONF tx channel -d $c0 $c1

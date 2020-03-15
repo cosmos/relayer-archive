@@ -561,3 +561,17 @@ func queryOutput(res interface{}, chain *relayer.Chain, cmd *cobra.Command) erro
 	}
 	return chain.Print(res, text, indent)
 }
+
+func getPrintingFlags(cmd *cobra.Command) (text, indent bool) {
+	var err error
+	text, err = cmd.Flags().GetBool("text")
+	if err != nil {
+		panic(err)
+	}
+
+	indent, err = cmd.Flags().GetBool("indent")
+	if err != nil {
+		panic(err)
+	}
+	return
+}

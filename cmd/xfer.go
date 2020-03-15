@@ -57,7 +57,7 @@ func xfer() *cobra.Command {
 				Dst: []sdk.Msg{},
 			}
 
-			if err = txs.Send(chains[src], chains[dst], cmd); err != nil {
+			if err = txs.Send(chains[src], chains[dst]); err != nil {
 				return err
 			}
 
@@ -121,10 +121,10 @@ func xfer() *cobra.Command {
 				Src: []sdk.Msg{},
 			}
 
-			return txs.Send(chains[src], chains[dst], cmd)
+			return txs.Send(chains[src], chains[dst])
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func xfersend() *cobra.Command {
@@ -178,10 +178,10 @@ func xfersend() *cobra.Command {
 				chains[src].PathEnd.MsgTransfer(chains[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 // UNTESTED: Currently filled with incorrect logic to make code compile
@@ -242,8 +242,8 @@ func xferrecv() *cobra.Command {
 				),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }

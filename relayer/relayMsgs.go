@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/spf13/cobra"
 )
 
 // RelayMsgs contains the msgs that need to be sent to both a src and dst chain
@@ -23,7 +22,7 @@ func (r *RelayMsgs) Ready() bool {
 }
 
 // Send sends the messages with appropriate output
-func (r *RelayMsgs) Send(src, dst *Chain, cmd *cobra.Command) error {
+func (r *RelayMsgs) Send(src, dst *Chain) error {
 	// SendRelayMsgs sends the msgs to their chains
 	if len(r.Src) > 0 {
 		// Submit the transactions to src chain
@@ -50,9 +49,29 @@ func (r *RelayMsgs) Send(src, dst *Chain, cmd *cobra.Command) error {
 	return nil
 }
 
+func debug(src, dst *Chain) bool {
+	if src.debug && dst.debug {
+		return true
+	}
+	return false
+}
+
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
 func (c *Chain) LogFailedTx(res sdk.TxResponse, msgs []sdk.Msg) {
-	c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s: %s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, codespaces[res.Codespace][int(res.Code)]))
+	if c.debug {
+		c.Log(fmt.Sprintf("- [%s] -> sending transaction:", c.ChainID))
+		c.Print(msgs, false, false)
+	}
+
+	msg, err := GetCodespace(res.Codespace, int(res.Code))
+	if err != nil {
+		c.logger.Info(err.Error())
+	}
+
+	c.logger.Info(fmt.Sprintf("✘ [%s]@{%d} - msg(%s) err(%s: %s)", c.ChainID, res.Height, getMsgAction(msgs), res.Codespace, msg))
+	if c.debug {
+		c.Print(res, false, false)
+	}
 }
 
 // LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
