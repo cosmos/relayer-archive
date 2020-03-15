@@ -24,9 +24,15 @@ var (
 func (src *Chain) CreateClients(dst *Chain, cmd *cobra.Command) (err error) {
 	clients := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
 
+	// Get latest src height for querying the client state
+	srcH, err := src.GetLatestLiteHeight()
+	if err != nil {
+		return err
+	}
+
 	// Create client for dst on src if it doesn't exist
 	var srcCs, dstCs clientTypes.StateResponse
-	if srcCs, err = src.QueryClientState(); err != nil {
+	if srcCs, err = src.QueryClientState(srcH); err != nil {
 		return err
 	} else if srcCs.ClientState == nil {
 		dstH, err := dst.UpdateLiteWithHeader()
@@ -37,8 +43,14 @@ func (src *Chain) CreateClients(dst *Chain, cmd *cobra.Command) (err error) {
 	}
 	// TODO: maybe log something here that the client has been created?
 
+	// Get latest dst height for querying the client state
+	dstH, err := dst.GetLatestLiteHeight()
+	if err != nil {
+		return err
+	}
+
 	// Create client for src on dst if it doesn't exist
-	if dstCs, err = dst.QueryClientState(); err != nil {
+	if dstCs, err = dst.QueryClientState(dstH); err != nil {
 		return err
 	} else if dstCs.ClientState == nil {
 		srcH, err := src.UpdateLiteWithHeader()
@@ -111,10 +123,10 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Query Client heights from chains src and dst
 	var csSrc, csDst clientTypes.StateResponse
-	if csSrc, err = src.QueryClientState(); err != nil {
+	if csSrc, err = src.QueryClientState(hs[src.ChainID].Height); err != nil {
 		return nil, err
 	}
-	if csDst, err = dst.QueryClientState(); err != nil {
+	if csDst, err = dst.QueryClientState(hs[dst.ChainID].Height); err != nil {
 		return nil, err
 	}
 

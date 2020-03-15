@@ -243,7 +243,12 @@ func queryClientCmd() *cobra.Command {
 				return err
 			}
 
-			res, err := chain.QueryClientState()
+			h, err := chain.GetLatestLiteHeight()
+			if err != nil {
+				return err
+			}
+
+			res, err := chain.QueryClientState(h)
 			if err != nil {
 				return err
 			}
