@@ -30,7 +30,7 @@ echo "Generating relayer configurations..."
 relayer config init
 relayer chains add -f demo/ibc0.json
 relayer chains add -f demo/ibc1.json
-relayer paths add ibc0 ibc1 -f demo/path.json
+relayer paths add ibc0 ibc1 path -f demo/path.json
 
 SEED0=$(jq -r '.secret' $GAIA_CONF/ibc0/n0/gaiacli/key_seed.json)
 SEED1=$(jq -r '.secret' $GAIA_CONF/ibc1/n0/gaiacli/key_seed.json)

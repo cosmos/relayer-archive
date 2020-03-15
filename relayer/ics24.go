@@ -1,7 +1,8 @@
-package relayer 
+package relayer
 
 import (
 	"fmt"
+
 	host "github.com/cosmos/cosmos-sdk/x/ibc/24-host"
 )
 
@@ -29,90 +30,6 @@ func (p PathEnd) String() string {
 	return fmt.Sprintf("client{%s}-conn{%s}-chan{%s}@chain{%s}:port{%s}", p.ClientID, p.ConnectionID, p.ChannelID, p.ChainID, p.PortID)
 }
 
-// pathType helps define what validations need to be run
-type pathType byte
-
-const (
-	// CLNTPATH sets chainID + clientID
-	CLNTPATH pathType = iota
-
-	// CONNPATH sets CLNTPATH + connectionID
-	CONNPATH
-
-	// CHANPATH sets channelID + portID
-	CHANPATH
-
-	// CLNTCHANPATH sets CLNTPATH + CHANPATH
-	CLNTCHANPATH
-
-	// FULLPATH sets all fields
-	FULLPATH
-)
-
-func (p pathType) String() string {
-	switch p {
-	case CLNTPATH:
-		return "CLNTPATH"
-	case CONNPATH:
-		return "CONNPATH"
-	case CHANPATH:
-		return "CHANPATH"
-	case CLNTCHANPATH:
-		return "CLNTCHANPATH"
-	case FULLPATH:
-		return "FULLPATH"
-	default:
-		return "shouldn't be here"
-	}
-}
-
-// PathClient used to set the path for client creation commands
-func (c *Chain) PathClient(clientID string) error {
-	return c.SetPath(&PathEnd{
-		ChainID:  c.ChainID,
-		ClientID: clientID,
-	}, CLNTPATH)
-}
-
-// PathConnection used to set the path for the connection creation commands
-func (c *Chain) PathConnection(clientID, connectionID string) error {
-	return c.SetPath(&PathEnd{
-		ChainID:      c.ChainID,
-		ClientID:     clientID,
-		ConnectionID: connectionID,
-	}, CONNPATH)
-}
-
-// PathChannel used to set the path for the channel creation commands
-func (c *Chain) PathChannel(channelID, portID string) error {
-	return c.SetPath(&PathEnd{
-		ChainID:   c.ChainID,
-		ChannelID: channelID,
-		PortID:    portID,
-	}, CHANPATH)
-}
-
-// PathChannelClient used to set the path for channel and client commands
-func (c *Chain) PathChannelClient(clientID, channelID, portID string) error {
-	return c.SetPath(&PathEnd{
-		ChainID:   c.ChainID,
-		ClientID:  clientID,
-		ChannelID: channelID,
-		PortID:    portID,
-	}, CLNTCHANPATH)
-}
-
-// FullPath sets all of the properties on the path
-func (c *Chain) FullPath(clientID, connectionID, channelID, portID string) error {
-	return c.SetPath(&PathEnd{
-		ChainID:      c.ChainID,
-		ClientID:     clientID,
-		ConnectionID: connectionID,
-		ChannelID:    channelID,
-		PortID:       portID,
-	}, FULLPATH)
-}
-
 // PathSet check if the chain has a path set
 func (c *Chain) PathSet() bool {
 	if c.PathEnd == nil {
@@ -132,76 +49,44 @@ func PathsSet(chains ...*Chain) bool {
 }
 
 // SetPath sets the path and validates the identifiers
-func (c *Chain) SetPath(p *PathEnd, t pathType) error {
-	err := p.Validate(t)
+func (c *Chain) SetPath(p *PathEnd) error {
+	err := p.Validate()
 	if err != nil {
-		return err
+		return c.ErrCantSetPath(err)
 	}
 	c.PathEnd = p
 	return nil
 }
 
+// AddPath takes the elements of a path and validates then, setting that path to the chain
+func (c *Chain) AddPath(clientID, connectionID, channelID, port string) error {
+	return c.SetPath(&PathEnd{ChainID: c.ChainID, ClientID: clientID, ConnectionID: connectionID, ChannelID: channelID, PortID: port})
+}
+
 // Validate returns errors about invalid identifiers as well as
 // unset path variables for the appropriate type
-func (p *PathEnd) Validate(t pathType) error {
-	switch t {
-	case CLNTPATH:
-		if err := p.Vclient(); err != nil {
-			return err
-		}
-		return nil
-	case CONNPATH:
-		if err := p.Vclient(); err != nil {
-			return err
-		}
-		if err := p.Vconn(); err != nil {
-			return err
-		}
-		return nil
-	case CHANPATH:
-		if err := p.Vchan(); err != nil {
-			return err
-		}
-		if err := p.Vport(); err != nil {
-			return err
-		}
-		return nil
-	case CLNTCHANPATH:
-		if err := p.Vclient(); err != nil {
-			return err
-		}
-		if err := p.Vchan(); err != nil {
-			return err
-		}
-		if err := p.Vport(); err != nil {
-			return err
-		}
-		return nil
-	case FULLPATH:
-		if err := p.Vclient(); err != nil {
-			return err
-		}
-		if err := p.Vconn(); err != nil {
-			return err
-		}
-		if err := p.Vchan(); err != nil {
-			return err
-		}
-		if err := p.Vport(); err != nil {
-			return err
-		}
-		return nil
-	default:
-		return fmt.Errorf("invalid path type: %s", t.String())
+func (p *PathEnd) Validate() error {
+	if err := p.Vclient(); err != nil {
+		return err
 	}
+	if err := p.Vconn(); err != nil {
+		return err
+	}
+	if err := p.Vchan(); err != nil {
+		return err
+	}
+	if err := p.Vport(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // ErrPathNotSet returns information what identifiers are needed to relay
-func (c *Chain) ErrPathNotSet(t pathType, err error) error {
-	return fmt.Errorf("Path of type %s on chain %s not set: %w", t.String(), c.ChainID, err)
+func (c *Chain) ErrPathNotSet() error {
+	return fmt.Errorf("Path on chain %s not set: %w", c.ChainID)
 }
 
 // ErrCantSetPath returns an error if the path doesn't set properly
-func (c *Chain) ErrCantSetPath(t pathType, err error) error {
-	return fmt.Errorf("Path of type %s on chain %s failed to set: %w", t.String(), c.ChainID, err)
+func (c *Chain) ErrCantSetPath(err error) error {
+	return fmt.Errorf("Path on chain %s failed to set: %w", c.ChainID, err)
 }

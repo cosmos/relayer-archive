@@ -7,17 +7,7 @@ import (
 )
 
 // Paths represent connection paths between chains
-type Paths []*Path
-
-// Duplicate returns true if there is a duplicate path in the array
-func (p Paths) Duplicate(path *Path) bool {
-	for _, pth := range p {
-		if path.Equal(pth) {
-			return true
-		}
-	}
-	return false
-}
+type Paths map[string]*Path
 
 // MustYAML returns the yaml string representation of the Paths
 func (p Paths) MustYAML() string {
@@ -28,8 +18,30 @@ func (p Paths) MustYAML() string {
 	return string(out)
 }
 
+// Get returns the configuration for a given path
+func (p Paths) Get(name string) (path *Path, err error) {
+	if pth, ok := p[name]; ok {
+		path = pth
+	} else {
+		err = fmt.Errorf("path with name %s does not exist", name)
+	}
+	return
+}
+
+// Add adds a path by its name
+func (p Paths) Add(name string, path *Path) (Paths, error) {
+	if err := path.Validate(); err != nil {
+		return Paths{}, err
+	}
+	if _, found := p[name]; found {
+		return Paths{}, fmt.Errorf("path with name %s already exists", name)
+	}
+	p[name] = path
+	return p, nil
+}
+
 // MustYAML returns the yaml string representation of the Path
-func (p Path) MustYAML() string {
+func (p *Path) MustYAML() string {
 	out, err := yaml.Marshal(p)
 	if err != nil {
 		panic(err)
@@ -37,24 +49,12 @@ func (p Path) MustYAML() string {
 	return string(out)
 }
 
-// SetIndices sets the index of the path
-func (p Paths) SetIndices() Paths {
-	out := Paths{}
-	for i, path := range p {
-		foo := path
-		foo.Index = i
-		out = append(out, foo)
-	}
-	return out
-}
-
 // PathsFromChains returns a path from the config between two chains
 func (p Paths) PathsFromChains(src, dst string) (Paths, error) {
-	var out Paths
-	for i, path := range p {
+	out := Paths{}
+	for name, path := range p {
 		if (path.Dst.ChainID == src || path.Src.ChainID == src) && (path.Dst.ChainID == dst || path.Src.ChainID == dst) {
-			path.Index = i
-			out = append(out, path)
+			out[name] = path
 		}
 	}
 	if len(out) == 0 {
@@ -74,10 +74,10 @@ type Path struct {
 
 // Validate checks that a path is valid
 func (p *Path) Validate() (err error) {
-	if err = p.Src.Validate(FULLPATH); err != nil {
+	if err = p.Src.Validate(); err != nil {
 		return err
 	}
-	if err = p.Dst.Validate(FULLPATH); err != nil {
+	if err = p.Dst.Validate(); err != nil {
 		return err
 	}
 	if _, err = p.GetStrategy(); err != nil {

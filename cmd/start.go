@@ -27,17 +27,17 @@ import (
 // startCmd represents the start command
 // NOTE: This is basically psuedocode
 var startCmd = &cobra.Command{
-	Use:   "start [src-chain-id] [dst-chain-id] [index]",
+	Use:   "start [src-chain-id] [dst-chain-id] [[path-name]]",
 	Short: "TODO: This cmd is wip right now",
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		src, dst := args[0], args[1]
-		chains, err := config.c.GetChains(src, dst)
+		chains, err := config.Chains.Gets(src, dst)
 		if err != nil {
 			return err
 		}
 
-		path, err := setPathsFromArgs(chains[src], chains[dst], args)
+		path, err := setPathsFromArgs(chains[src], chains[dst], args[2])
 		if err != nil {
 			return err
 		}
