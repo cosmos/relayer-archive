@@ -83,7 +83,7 @@ func xfer() *cobra.Command {
 			fmt.Printf("nextSeqRecv: %v\n", seqRecv)
 			fmt.Printf("nextSeqSend: %v\n", seqSend)
 
-			srcCommitRes, err := chains[src].QueryPacketCommitment(hs[src].Height-1, int64(seqSend-1))
+			srcCommitRes, err := chains[src].QueryPacketCommitment(hs[src].Height, int64(seqSend-1))
 			if err != nil {
 				return err
 			}
@@ -97,7 +97,7 @@ func xfer() *cobra.Command {
 				sdk.NewCoins(amount),
 				chains[src].MustGetAddress(),
 				dstAddr,
-				source,
+				!source,
 				dstHeader.GetHeight()+1000,
 			)
 
@@ -121,7 +121,7 @@ func xfer() *cobra.Command {
 								xferPacket,
 							),
 							srcCommitRes.Proof.Proof,
-							int64(srcCommitRes.ProofHeight+1),
+							int64(srcCommitRes.ProofHeight-1),
 						),
 						chains[dst].MustGetAddress(),
 					),
