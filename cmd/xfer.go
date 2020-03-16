@@ -84,6 +84,10 @@ func xfer() *cobra.Command {
 				return err
 			}
 
+			if srcCommitRes.Proof.Proof == nil {
+				panic("queried proof was nil, must be a mistake somewhere")
+			}
+
 			// reconstructing packet data here instead of retrieving from an indexed node
 			xferPacket := chains[src].PathEnd.XferPacket(
 				sdk.NewCoins(amount),
