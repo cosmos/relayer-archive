@@ -20,10 +20,20 @@ bash config-relayer.sh "skip"
 sleep 2
 relayer tx full-path ibc0 ibc1 -d -o 3s
 
-
+echo "Initial balances:"
+relayer q balance ibc0
+relayer q balance ibc1
 
 # Send the stake
-relayer tx raw xfer ibc0 ibc1 10stake $(relayer keys show ibc1 testkey -a) -d
+relayer tx raw xfer ibc0 ibc1 10transfer/testchannelid/stake true $(relayer keys show ibc1 testkey -a) -d
+
+echo "Balances post-first-packet:"
+relayer q balance ibc0
+relayer q balance ibc1
 
 # Send the stake back
-relayer tx raw xfer ibc1 ibc0 10transfer/testchannelid/stake $(relayer keys show ibc1 testkey -a) -d
+relayer tx raw xfer ibc1 ibc0 10transfer/testchannelid/stake false $(relayer keys show ibc1 testkey -a) -d
+
+echo "Balances post-second-packet:"
+relayer q balance ibc0
+relayer q balance ibc1

@@ -15,10 +15,10 @@ import (
 
 func xfer() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer [src-chain-id] [dst-chain-id] [amount] [dst-chain-addr]",
+		Use:   "xfer [src-chain-id] [dst-chain-id] [amount] [is-source] [dst-chain-addr]",
 		Short: "xfer",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
-		Args:  cobra.ExactArgs(4),
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -40,20 +40,21 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			dstAddr, err := sdk.AccAddressFromBech32(args[3])
-			if err != nil {
-				return err
-			}
-
 			// If there is a path seperator in the denom of the coins being sent,
 			// then src is not the source, otherwise it is
 			// NOTE: this will not work in the case where tokens are sent from A -> B -> C
 			// Need a function in the SDK to determine from a denom if the tokens are from this chain
+			// TODO: Refactor this in the SDK.
 			var source bool
-			if !strings.Contains(amount.GetDenom(), "/") {
+			if args[3] == "true" {
 				source = true
 			} else {
 				source = false
+			}
+
+			dstAddr, err := sdk.AccAddressFromBech32(args[4])
+			if err != nil {
+				return err
 			}
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()
