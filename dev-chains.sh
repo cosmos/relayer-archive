@@ -19,3 +19,5 @@ bash two-chains.sh "local" "skip"
 bash config-relayer.sh "skip"
 sleep 5
 relayer tx full-path ibc0 ibc1
+
+relayer tx raw xfer ibc0 ibc1 path -p
