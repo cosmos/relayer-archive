@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
@@ -65,6 +66,8 @@ func xfer() *cobra.Command {
 			// Working on SRC chain :point_up:
 			// Working on DST chain :point_down:
 
+			time.Sleep(10 * time.Second)
+
 			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
 			if err != nil {
 				return err
@@ -80,10 +83,7 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("nextSeqRecv: %v\n", seqRecv)
-			fmt.Printf("nextSeqSend: %v\n", seqSend)
-
-			srcCommitRes, err := chains[src].QueryPacketCommitment(hs[src].Height, int64(seqSend-1))
+			srcCommitRes, err := chains[src].QueryPacketCommitment(hs[src].Height-1, int64(seqSend-1))
 			if err != nil {
 				return err
 			}
@@ -121,7 +121,7 @@ func xfer() *cobra.Command {
 								xferPacket,
 							),
 							srcCommitRes.Proof.Proof,
-							int64(srcCommitRes.ProofHeight-1),
+							int64(srcCommitRes.ProofHeight),
 						),
 						chains[dst].MustGetAddress(),
 					),
