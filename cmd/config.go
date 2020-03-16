@@ -162,7 +162,7 @@ type GlobalConfig struct {
 // newDefaultGlobalConfig returns a global config with defaults set
 func newDefaultGlobalConfig() GlobalConfig {
 	return GlobalConfig{
-		Timeout:       "5s",
+		Timeout:       "10s",
 		LiteCacheSize: 20,
 	}
 }
