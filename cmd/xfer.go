@@ -53,11 +53,11 @@ func xfer() *cobra.Command {
 
 			// MsgTransfer will call SendPacket on src chain
 			txs := relayer.RelayMsgs{
-				Src: []sdk.Msg{chains[src].MsgTransfer(chains[dst], dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source)},
+				Src: []sdk.Msg{chains[src].PathEnd.MsgTransfer(chains[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, chains[src].MustGetAddress())},
 				Dst: []sdk.Msg{},
 			}
 
-			if err = txs.Send(chains[src], chains[dst], cmd); err != nil {
+			if err = txs.Send(chains[src], chains[dst]); err != nil {
 				return err
 			}
 
@@ -85,7 +85,7 @@ func xfer() *cobra.Command {
 			}
 
 			// reconstructing packet data here instead of retrieving from an indexed node
-			xferPacket := chains[src].XferPacket(
+			xferPacket := chains[src].PathEnd.XferPacket(
 				sdk.NewCoins(amount),
 				chains[src].MustGetAddress(),
 				dstAddr,
@@ -98,32 +98,33 @@ func xfer() *cobra.Command {
 			// information from an indexing node
 			txs = relayer.RelayMsgs{
 				Dst: []sdk.Msg{
-					chains[dst].UpdateClient(hs[src]),
-					chains[dst].MsgRecvPacket(
-						chains[src],
+					chains[dst].PathEnd.UpdateClient(hs[src], chains[dst].MustGetAddress()),
+					chains[dst].PathEnd.MsgRecvPacket(
+						chains[src].PathEnd,
 						seqRecv.NextSequenceRecv,
 						xferPacket,
 						chanTypes.NewPacketResponse(
 							chains[src].PathEnd.PortID,
 							chains[src].PathEnd.ChannelID,
 							seqSend,
-							chains[dst].NewPacket(
-								chains[src],
+							chains[dst].PathEnd.NewPacket(
+								chains[src].PathEnd,
 								seqSend,
 								xferPacket,
 							),
 							srcCommitRes.Proof.Proof,
 							int64(srcCommitRes.ProofHeight),
 						),
+						chains[dst].MustGetAddress(),
 					),
 				},
 				Src: []sdk.Msg{},
 			}
 
-			return txs.Send(chains[src], chains[dst], cmd)
+			return txs.Send(chains[src], chains[dst])
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 func xfersend() *cobra.Command {
@@ -174,13 +175,13 @@ func xfersend() *cobra.Command {
 			}
 
 			txs := []sdk.Msg{
-				chains[src].MsgTransfer(chains[dst], dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source),
+				chains[src].PathEnd.MsgTransfer(chains[dst].PathEnd, dstHeader.GetHeight(), sdk.NewCoins(amount), dstAddr, source, chains[src].MustGetAddress()),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
 
 // UNTESTED: Currently filled with incorrect logic to make code compile
@@ -226,22 +227,23 @@ func xferrecv() *cobra.Command {
 			// }
 
 			txs := []sdk.Msg{
-				chains[src].UpdateClient(hs[dst]),
-				chains[src].MsgRecvPacket(
-					chains[dst],
+				chains[src].PathEnd.UpdateClient(hs[dst], chains[src].MustGetAddress()),
+				chains[src].PathEnd.MsgRecvPacket(
+					chains[dst].PathEnd,
 					seqRecv.NextSequenceRecv,
-					chains[src].XferPacket(
+					chains[src].PathEnd.XferPacket(
 						sdk.NewCoins(),
 						chains[src].MustGetAddress(),
 						chains[src].MustGetAddress(),
 						false,
 						19291024),
 					chanTypes.PacketResponse{},
+					chains[src].MustGetAddress(),
 				),
 			}
 
-			return SendAndPrint(txs, chains[src], cmd)
+			return sendAndPrint(txs, chains[src], cmd)
 		},
 	}
-	return transactionFlags(cmd)
+	return cmd
 }
