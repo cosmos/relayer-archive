@@ -30,7 +30,7 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			amount, err := sdk.ParseCoin("10stake")
+			amount, err := sdk.ParseCoin("10transfer/testchannelid/stake")
 			if err != nil {
 				return err
 			}
@@ -41,9 +41,9 @@ func xfer() *cobra.Command {
 			// Need a function in the SDK to determine from a denom if the tokens are from this chain
 			var source bool
 			if strings.Contains(amount.GetDenom(), "/") {
-				source = false
-			} else {
 				source = true
+			} else {
+				source = false
 			}
 
 			dstAddr := chains[dst].MustGetAddress()
