@@ -30,15 +30,16 @@ killall gaiad &> /dev/null
 
 set -e
 
-echo "Building github.com/cosmos/gaia@$GAIA_BRANCH..."
 
 if [[ -d $GAIA_REPO ]]; then
   cd $GAIA_REPO
 
   # remote build syncs with remote then builds
   if [[ "$1" == "local" ]]; then
+    echo "Using local version of github.com/cosmos/gaia"
     make install &> /dev/null
   else
+    echo "Building github.com/cosmos/gaia@$GAIA_BRANCH..."
     if [[ ! -n $(git status -s) ]]; then
       # sync with remote $GAIA_BRANCH
       git fetch --all &> /dev/null
