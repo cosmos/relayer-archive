@@ -268,8 +268,6 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 		return nil, dst.ErrCantSetPath(err)
 	}
 
-	scid, dcid := src.ChainID, dst.ChainID
-
 	hs, err := UpdatesWithHeaders(src, dst)
 	if err != nil {
 		return nil, err
