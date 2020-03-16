@@ -2,6 +2,7 @@ package relayer
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -641,6 +642,33 @@ func (c *Chain) QueryPacketAck(height, seq int64) (comRes CommitmentResponse, er
 
 func qPacketAckErr(err error) error {
 	return fmt.Errorf("query packet acknowledgement failed: %w", err)
+}
+
+// QueryTx takes a transaction hash and returns the transaction
+func (c *Chain) QueryTx(hashHex string) (sdk.TxResponse, error) {
+	hash, err := hex.DecodeString(hashHex)
+	if err != nil {
+		return sdk.TxResponse{}, err
+	}
+
+	resTx, err := c.Client.Tx(hash, true)
+	if err != nil {
+		return sdk.TxResponse{}, err
+	}
+
+	// TODO: validate data coming back with local lite client
+
+	resBlocks, err := c.queryBlocksForTxResults([]*ctypes.ResultTx{resTx})
+	if err != nil {
+		return sdk.TxResponse{}, err
+	}
+
+	out, err := c.formatTxResult(resTx, resBlocks[resTx.Height])
+	if err != nil {
+		return out, err
+	}
+
+	return out, nil
 }
 
 // QueryTxs returns an array of transactions given a tag

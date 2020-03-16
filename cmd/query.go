@@ -30,6 +30,7 @@ func init() {
 	queryCmd.AddCommand(queryPacketCommitment())
 	queryCmd.AddCommand(queryPacketAck())
 	queryCmd.AddCommand(queryTxs())
+	queryCmd.AddCommand(queryTx())
 }
 
 var eventFormat = "{eventType}.{eventAttribute}={value}"
@@ -39,6 +40,28 @@ var queryCmd = &cobra.Command{
 	Use:     "query",
 	Aliases: []string{"q"},
 	Short:   "query functionality for configured chains",
+}
+
+func queryTx() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "tx [chain-id] [tx-hash]",
+		Short: "query transactions by the events they produce",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			chain, err := config.Chains.Get(args[0])
+			if err != nil {
+				return err
+			}
+
+			txs, err := chain.QueryTx(args[1])
+			if err != nil {
+				return err
+			}
+
+			return queryOutput(txs, chain, cmd)
+		},
+	}
+	return outputFlags(cmd)
 }
 
 func queryTxs() *cobra.Command {
