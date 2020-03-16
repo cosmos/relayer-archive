@@ -124,7 +124,7 @@ func pathsListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return jsonFlag(cmd)
 }
 
 func pathsShowCmd() *cobra.Command {

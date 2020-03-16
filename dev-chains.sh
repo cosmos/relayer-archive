@@ -19,4 +19,4 @@ bash two-chains.sh "local" "skip"
 bash config-relayer.sh "skip"
 sleep 2
 relayer tx full-path ibc0 ibc1 -d -o 3s
-relayer tx raw xfer ibc0 ibc1 path -d
+relayer tx raw xfer ibc0 ibc1 path 10stake $(relayer keys show ibc1 testkey -a) -d

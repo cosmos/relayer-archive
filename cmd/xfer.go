@@ -15,10 +15,10 @@ import (
 
 func xfer() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer [src-chain-id] [dst-chain-id] [[path-name]]",
+		Use:   "xfer [src-chain-id] [dst-chain-id] [path-name] [amount] [dst-chain-addr]",
 		Short: "xfer",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
-		Args:  cobra.RangeArgs(2, 3),
+		Args:  cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -30,7 +30,12 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			amount, err := sdk.ParseCoin("10transfer/testchannelid/stake")
+			amount, err := sdk.ParseCoin(args[3])
+			if err != nil {
+				return err
+			}
+
+			dstAddr, err := sdk.AccAddressFromBech32(args[4])
 			if err != nil {
 				return err
 			}
@@ -45,8 +50,6 @@ func xfer() *cobra.Command {
 			} else {
 				source = false
 			}
-
-			dstAddr := chains[dst].MustGetAddress()
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
