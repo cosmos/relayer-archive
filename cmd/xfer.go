@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -69,15 +70,18 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			seqRecv, err := chains[dst].QueryNextSeqRecv(hs[dst].Height - 1)
+			seqRecv, err := chains[dst].QueryNextSeqRecv(hs[dst].Height)
 			if err != nil {
 				return err
 			}
 
-			seqSend, err := chains[src].QueryNextSeqSend(hs[src].Height - 1)
+			seqSend, err := chains[src].QueryNextSeqSend(hs[src].Height)
 			if err != nil {
 				return err
 			}
+
+			fmt.Printf("nextSeqRecv: %v\n", seqRecv)
+			fmt.Printf("nextSeqSend: %v\n", seqSend)
 
 			srcCommitRes, err := chains[src].QueryPacketCommitment(hs[src].Height, int64(seqSend-1))
 			if err != nil {
@@ -117,7 +121,7 @@ func xfer() *cobra.Command {
 								xferPacket,
 							),
 							srcCommitRes.Proof.Proof,
-							int64(srcCommitRes.ProofHeight),
+							int64(srcCommitRes.ProofHeight+1),
 						),
 						chains[dst].MustGetAddress(),
 					),
