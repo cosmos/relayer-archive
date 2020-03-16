@@ -53,7 +53,7 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 
 	// Send msgs to both chains
 	if clients.Send(src, dst); clients.success {
-		src.Log(fmt.Sprintf("* Clients created: [%s]client(%s) and [%s]client(%s)",
+		src.Log(fmt.Sprintf("★ Clients created: [%s]client(%s) and [%s]client(%s)",
 			src.ChainID, dst.ChainID, src.PathEnd.ClientID, dst.PathEnd.ClientID))
 	}
 	return nil
@@ -83,7 +83,7 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 				return err
 			}
 			logConnectionStates(src, dst, conns)
-			src.Log(fmt.Sprintf("* Connection created between [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
+			src.Log(fmt.Sprintf("★ Connection created between [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
 				src.ChainID, src.PathEnd.ClientID, src.PathEnd.ConnectionID,
 				dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID))
 			break
@@ -241,7 +241,7 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 				return err
 			}
 			logChannelStates(src, dst, chans)
-			src.Log(fmt.Sprintf("* Channel created between [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+			src.Log(fmt.Sprintf("★ Channel created between [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
 				src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
 				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
 			break
