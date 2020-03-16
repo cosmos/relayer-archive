@@ -1,12 +1,15 @@
 package relayer
 
 import (
+	"fmt"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	clientTypes "github.com/cosmos/cosmos-sdk/x/ibc/02-client/types"
 	connState "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/exported"
+	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
 	chanState "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/exported"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	commitmentypes "github.com/cosmos/cosmos-sdk/x/ibc/23-commitment/types"
 )
 
@@ -30,6 +33,7 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
+		src.logCreateClient(dst, dstH.GetHeight())
 		clients.Src = append(clients.Src, src.PathEnd.CreateClient(dstH, src.GetTrustingPeriod(), src.MustGetAddress()))
 	}
 	// TODO: maybe log something here that the client has been created?
@@ -42,6 +46,7 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 		if err != nil {
 			return err
 		}
+		dst.logCreateClient(src, srcH.GetHeight())
 		clients.Dst = append(clients.Dst, dst.PathEnd.CreateClient(srcH, dst.GetTrustingPeriod(), dst.MustGetAddress()))
 	}
 	// TODO: maybe log something here that the client has been created?
@@ -52,6 +57,10 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 	}
 
 	return nil
+}
+
+func (src *Chain) logCreateClient(dst *Chain, dstH uint64) {
+	src.Log(fmt.Sprintf("- [%s] -> creating client for %s (h{%d}) trust(%s)", src.ChainID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }
 
 // CreateConnection runs the connection creation messages on timeout until they pass
@@ -105,12 +114,16 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
+	logConnectionStates(src, dst, conn)
+
 	// NOTE: We query connection at height - 1 because of the way tendermint returns
 	// proofs the commit for height n is contained in the header of height n + 1
 	cs, err := QueryClientStatePair(src, dst)
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: log these heights or something about client state? debug?
 
 	// Store the heights
 	srcConsH, dstConsH := int64(cs[scid].ClientState.GetLatestHeight()), int64(cs[dcid].ClientState.GetLatestHeight())
@@ -125,10 +138,12 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	switch {
 	// Handshake hasn't been started on src or dst, relay `connOpenInit` to src
 	case conn[scid].Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.State == connState.UNINITIALIZED:
+		logConnectionStates(src, dst, conn)
 		out.Src = append(out.Src, src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()))
 
-	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
+		// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
 	case conn[scid].Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.State == connState.INIT:
+		logConnectionStates(src, dst, conn)
 		out.Src = append(out.Src,
 			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 			src.PathEnd.ConnTry(dst.PathEnd, conn[dcid], cons[dcid], dstConsH, src.MustGetAddress()),
@@ -136,6 +151,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Handshake has started on src (1 step done), relay `connOpenTry` and `updateClient` on dst
 	case conn[scid].Connection.State == connState.INIT && conn[dcid].Connection.State == connState.UNINITIALIZED:
+		logConnectionStates(dst, src, conn)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 			dst.PathEnd.ConnTry(src.PathEnd, conn[scid], cons[scid], srcConsH, dst.MustGetAddress()),
@@ -143,6 +159,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Handshake has started on src end (2 steps done), relay `connOpenAck` and `updateClient` to dst end
 	case conn[scid].Connection.State == connState.TRYOPEN && conn[dcid].Connection.State == connState.INIT:
+		logConnectionStates(dst, src, conn)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 			dst.PathEnd.ConnAck(conn[scid], cons[scid], srcConsH, dst.MustGetAddress()),
@@ -150,6 +167,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Handshake has started on dst end (2 steps done), relay `connOpenAck` and `updateClient` to src end
 	case conn[scid].Connection.State == connState.INIT && conn[dcid].Connection.State == connState.TRYOPEN:
+		logConnectionStates(src, dst, conn)
 		out.Src = append(out.Src,
 			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 			src.PathEnd.ConnAck(conn[dcid], cons[dcid], dstConsH, src.MustGetAddress()),
@@ -157,6 +175,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Handshake has confirmed on dst (3 steps done), relay `connOpenConfirm` and `updateClient` to src end
 	case conn[scid].Connection.State == connState.TRYOPEN && conn[dcid].Connection.State == connState.OPEN:
+		logConnectionStates(src, dst, conn)
 		out.Src = append(out.Src,
 			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 			src.PathEnd.ConnConfirm(conn[dcid], src.MustGetAddress()),
@@ -164,6 +183,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
 	case conn[scid].Connection.State == connState.OPEN && conn[dcid].Connection.State == connState.TRYOPEN:
+		logConnectionStates(dst, src, conn)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 			dst.PathEnd.ConnConfirm(conn[scid], dst.MustGetAddress()),
@@ -171,6 +191,19 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 	}
 
 	return out, nil
+}
+
+func logConnectionStates(src, dst *Chain, conn map[string]connTypes.ConnectionResponse) {
+	src.Log(fmt.Sprintf("- connection states -> [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
+		src.ChainID,
+		conn[src.ChainID].ProofHeight,
+		src.PathEnd.ConnectionID,
+		conn[src.ChainID].Connection.GetState(),
+		dst.ChainID,
+		conn[dst.ChainID].ProofHeight,
+		dst.PathEnd.ConnectionID,
+		conn[dst.ChainID].Connection.GetState(),
+	))
 }
 
 // CreateChannel runs the channel creation messages on timeout until they pass
@@ -231,12 +264,14 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 	switch {
 	// Handshake hasn't been started on src or dst, relay `chanOpenInit` to src
 	case chans[scid].Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.State == chanState.UNINITIALIZED:
+		logChannelStates(src, dst, chans)
 		out.Src = append(out.Src,
 			src.PathEnd.ChanInit(dst.PathEnd, ordering, src.MustGetAddress()),
 		)
 
 	// Handshake has started on dst (1 step done), relay `chanOpenTry` and `updateClient` to src
 	case chans[scid].Channel.State == chanState.UNINITIALIZED && chans[dcid].Channel.State == chanState.INIT:
+		logChannelStates(src, dst, chans)
 		out.Src = append(out.Src,
 			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 			src.PathEnd.ChanTry(dst.PathEnd, chans[dcid], src.MustGetAddress()),
@@ -244,6 +279,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 	// Handshake has started on src (1 step done), relay `chanOpenTry` and `updateClient` to dst
 	case chans[scid].Channel.State == chanState.INIT && chans[dcid].Channel.State == chanState.UNINITIALIZED:
+		logChannelStates(dst, src, chans)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 			dst.PathEnd.ChanTry(src.PathEnd, chans[scid], dst.MustGetAddress()),
@@ -251,6 +287,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 	// Handshake has started on src (2 steps done), relay `chanOpenAck` and `updateClient` to dst
 	case chans[scid].Channel.State == chanState.TRYOPEN && chans[dcid].Channel.State == chanState.INIT:
+		logChannelStates(dst, src, chans)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 			dst.PathEnd.ChanAck(chans[scid], dst.MustGetAddress()),
@@ -258,6 +295,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 	// Handshake has started on dst (2 steps done), relay `chanOpenAck` and `updateClient` to src
 	case chans[scid].Channel.State == chanState.INIT && chans[dcid].Channel.State == chanState.TRYOPEN:
+		logChannelStates(src, dst, chans)
 		out.Src = append(out.Src,
 			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 			src.PathEnd.ChanAck(chans[dcid], src.MustGetAddress()),
@@ -265,6 +303,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 	// Handshake has confirmed on dst (3 steps done), relay `chanOpenConfirm` and `updateClient` to src
 	case chans[scid].Channel.State == chanState.TRYOPEN && chans[dcid].Channel.State == chanState.OPEN:
+		logChannelStates(src, dst, chans)
 		out.Src = append(out.Src,
 			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 			src.PathEnd.ChanConfirm(chans[dcid], src.MustGetAddress()),
@@ -272,6 +311,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
 	case chans[scid].Channel.State == chanState.OPEN && chans[dcid].Channel.State == chanState.TRYOPEN:
+		logChannelStates(dst, src, chans)
 		out.Dst = append(out.Dst,
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 			dst.PathEnd.ChanConfirm(chans[scid], dst.MustGetAddress()),
@@ -279,4 +319,18 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 	}
 
 	return out, nil
+}
+
+func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse) {
+	// TODO: replace channelID with portID?
+	src.Log(fmt.Sprintf("- channel states -> [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
+		src.ChainID,
+		conn[src.ChainID].ProofHeight,
+		src.PathEnd.ChannelID,
+		conn[src.ChainID].Channel.GetState(),
+		dst.ChainID,
+		conn[dst.ChainID].ProofHeight,
+		dst.PathEnd.ChannelID,
+		conn[dst.ChainID].Channel.GetState(),
+	))
 }

@@ -23,11 +23,15 @@ func (r *RelayMsgs) Ready() bool {
 
 // Send sends the messages with appropriate output
 func (r *RelayMsgs) Send(src, dst *Chain) error {
-	// SendRelayMsgs sends the msgs to their chains
+	// TODO: maybe figure out a better way to indicate error here?
+	var out error
+
+	// TODO: Parallelize? Maybe?
 	if len(r.Src) > 0 {
 		// Submit the transactions to src chain
 		res, err := src.SendMsgs(r.Src)
 		if err != nil || res.Code != 0 {
+			out = err
 			src.LogFailedTx(res, r.Src)
 		} else {
 			// NOTE: Add more data to this such as identifiers
@@ -39,6 +43,7 @@ func (r *RelayMsgs) Send(src, dst *Chain) error {
 		// Submit the transactions to dst chain
 		res, err := dst.SendMsgs(r.Dst)
 		if err != nil || res.Code != 0 {
+			out = err
 			dst.LogFailedTx(res, r.Dst)
 		} else {
 			// NOTE: Add more data to this such as identifiers
@@ -46,14 +51,7 @@ func (r *RelayMsgs) Send(src, dst *Chain) error {
 		}
 	}
 
-	return nil
-}
-
-func debug(src, dst *Chain) bool {
-	if src.debug && dst.debug {
-		return true
-	}
-	return false
+	return out
 }
 
 // LogFailedTx takes the transaction and the messages to create it and logs the appropriate data
