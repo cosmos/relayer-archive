@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,11 +46,9 @@ func xfer() *cobra.Command {
 			// NOTE: this will not work in the case where tokens are sent from A -> B -> C
 			// Need a function in the SDK to determine from a denom if the tokens are from this chain
 			// TODO: Refactor this in the SDK.
-			var source bool
-			if args[3] == "true" {
-				source = true
-			} else {
-				source = false
+			source, err := strconv.ParseBool(args[3])
+			if err != nil {
+				return err
 			}
 
 			dstAddr, err := sdk.AccAddressFromBech32(args[4])

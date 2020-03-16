@@ -18,22 +18,21 @@ rm -rf $RELAYER_CONF &> /dev/null
 bash two-chains.sh "local" "skip"
 bash config-relayer.sh "skip"
 sleep 2
-relayer tx full-path ibc0 ibc1 -d -o 3s
+relayer tx full-path ibc0 ibc1 -o 3s
 
+echo
 echo "Initial balances:"
-relayer q balance ibc0
-relayer q balance ibc1
-
-# Send the n0token
-relayer tx raw xfer ibc0 ibc1 10transfer/testchannelid/n0token true $(relayer keys show ibc1 testkey -a) -d
-
-echo "Balances post-first-packet:"
-relayer q balance ibc0
-relayer q balance ibc1
-
-# Send the n0token back
-relayer tx raw xfer ibc1 ibc0 10transfer/testchannelid/n0token false $(relayer keys show ibc0 testkey -a) -d
-
-echo "Balances post-second-packet:"
-relayer q balance ibc0
-relayer q balance ibc1
+echo "ibc0 balance: $(relayer q balance ibc0)"
+echo "ibc1 balance: $(relayer q balance ibc1)"
+echo 
+echo "sending 10n0token from ibc0 to ibc1..."
+relayer tx raw xfer ibc0 ibc1 10transfer/ibczeroxfer/n0token true $(relayer keys show ibc1 testkey -a) -d
+echo
+echo "ibc0 balance: $(relayer q balance ibc0)"
+echo "ibc1 balance: $(relayer q balance ibc1)"
+echo
+echo "sending 10n0token back to ibc0 from ibc1..."
+relayer tx raw xfer ibc1 ibc0 10transfer/ibczeroxfer/n0token false $(relayer keys show ibc0 testkey -a) -d
+echo
+echo "ibc0 balance: $(relayer q balance ibc0)"
+echo "ibc1 balance: $(relayer q balance ibc1)"

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -164,15 +165,32 @@ func queryBalanceCmd() *cobra.Command {
 				return err
 			}
 
+			jsn, err := cmd.Flags().GetBool(flagJSON)
+			if err != nil {
+				return err
+			}
+
 			coins, err := chain.QueryBalance()
 			if err != nil {
 				return err
 			}
 
-			return queryOutput(coins, chain, cmd)
+			var out string
+			if jsn {
+				byt, err := json.Marshal(coins)
+				if err != nil {
+					return err
+				}
+				out = string(byt)
+			} else {
+				out = coins.String()
+			}
+
+			fmt.Println(out)
+			return nil
 		},
 	}
-	return outputFlags(cmd)
+	return jsonFlag(cmd)
 }
 
 func queryHeaderCmd() *cobra.Command {
