@@ -18,7 +18,7 @@ GAIA_DATA="$RELAYER_DIR/data"
 
 # Ensure user understands what will be deleted
 if [[ -d $GAIA_DATA ]] && [[ ! "$2" == "skip" ]]; then
-  read -p "$0 will delete $GAIA_DATA folder. Do you wish to continue? (y/n): " -n 1 -r
+  read -p "$0 will delete \$(pwd)/data folder. Do you wish to continue? (y/n): " -n 1 -r
   echo 
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
       exit 1

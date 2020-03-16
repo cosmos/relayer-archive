@@ -892,7 +892,11 @@ func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBl
 	if err != nil {
 		return sdk.TxResponse{}, err
 	}
-	return sdk.NewResponseResultTx(resTx, tx, resBlock.Block.Time.Format(time.RFC3339)), nil
+	res := sdk.NewResponseResultTx(resTx, tx, resBlock.Block.Time.Format(time.RFC3339))
+	if !c.debug {
+		res.RawLog = ""
+	}
+	return res, nil
 }
 
 // Takes some bytes and a codec and returns an sdk.Tx

@@ -70,6 +70,13 @@ $ relayer q balance ibc1
 
 > NOTE: The relayer relies on `cosmos/cosmos-sdk@ibc-alpha` and `tendermint/tendermint@v0.33.0-dev2`. If you run into problems building it likely related to those dependancies. Also the `two-chainz` script requires that the `cosmos/gaia` and `cosmos/relayer` repos be present locally and buildable. Read the script and change the paths as needed.
 
+## Next items
+
+- [ ] Setup Versioning
+- [ ] Split the xfer command into xfer-send and xfer-recv
+- [ ] Wire up packet ack and timeout
+- [ ] get naive relay strategy working properly
+
 ## Setting up Developer Environment
 
 Working with the relayer can frequently involve working with local developement branches of `gaia`, `cosmos-sdk` and the `relayer`. To setup your environment to point at the local versions of the code and reduce the amount of time in your read-eval-print loops try the following:

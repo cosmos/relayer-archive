@@ -6,7 +6,7 @@ GAIA_CONF="$RELAYER_DIR/data"
 
 # Ensure user understands what will be deleted
 if ([[ -d $RELAYER_CONF ]] || [[ -d $GAIA_CONF ]]) && [[ ! "$1" == "skip" ]]; then
-  read -p "$0 will delete $RELAYER_CONF and $GAIA_CONF folder. Do you wish to continue? (y/n): " -n 1 -r
+  read -p "$0 will delete \$HOME/.relayer and \$(pwd)/data folder. Do you wish to continue? (y/n): " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
       exit 1
@@ -16,7 +16,7 @@ fi
 cd $RELAYER_DIR
 rm -rf $RELAYER_CONF &> /dev/null
 bash two-chainz "local" "skip"
-bash config-relayer.sh "skip"
+bash config-relayer "skip"
 sleep 2
 relayer tx full-path ibc0 ibc1 -o 3s
 
