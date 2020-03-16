@@ -86,13 +86,13 @@ $RELAYER --home $RLY_CONF q clients $c1 | jq -r '.[].value.id'
 echo "Creating connection..."
 $RELAYER --home $RLY_CONF tx connection -d -o 3s $c0 $c1
 
-echo "Querying connections..."
-$RELAYER --home $RLY_CONF q connection $c0 $(relayer q connections $c1 | jq -r '.[0].counterparty.connection_id') | jq -r '.connection.state'
-$RELAYER --home $RLY_CONF q connection $c1 $(relayer q connections $c0 | jq -r '.[0].counterparty.connection_id') | jq -r '.connection.state'
+# echo "Querying connections..."
+# $RELAYER --home $RLY_CONF q connection $c0 $(relayer q connections $c1 | jq -r '.[0].counterparty.connection_id') | jq -r '.connection.state'
+# $RELAYER --home $RLY_CONF q connection $c1 $(relayer q connections $c0 | jq -r '.[0].counterparty.connection_id') | jq -r '.connection.state'
 
 echo "Creating channel..."
 $RELAYER --home $RLY_CONF tx channel -d -o 3s $c0 $c1
 
-echo "Querying channel..."
-$RELAYER --home $RLY_CONF q channel $c0 $($RELAYER --home $RLY_CONF q channels $c1 | jq -r '.[0].counterparty.channel_id') $($RELAYER --home $RLY_CONF q channels $c1 | jq -r '.[0].counterparty.port_id') | jq -r '.channel.state'
-$RELAYER --home $RLY_CONF q channel $c1 $($RELAYER --home $RLY_CONF q channels $c0 | jq -r '.[0].counterparty.channel_id') $($RELAYER --home $RLY_CONF q channels $c0 | jq -r '.[0].counterparty.port_id') | jq -r '.channel.state'
+# echo "Querying channel..."
+# $RELAYER --home $RLY_CONF q channel $c0 $($RELAYER --home $RLY_CONF q channels $c1 | jq -r '.[0].counterparty.channel_id') $($RELAYER --home $RLY_CONF q channels $c1 | jq -r '.[0].counterparty.port_id') | jq -r '.channel.state'
+# $RELAYER --home $RLY_CONF q channel $c1 $($RELAYER --home $RLY_CONF q channels $c0 | jq -r '.[0].counterparty.channel_id') $($RELAYER --home $RLY_CONF q channels $c0 | jq -r '.[0].counterparty.port_id') | jq -r '.channel.state'

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 )
@@ -80,30 +80,39 @@ func xfer() *cobra.Command {
 			// Working on SRC chain :point_up:
 			// Working on DST chain :point_down:
 
-			time.Sleep(10 * time.Second)
+			var (
+				hs           map[string]*tmclient.Header
+				seqRecv      chanTypes.RecvResponse
+				seqSend      uint64
+				srcCommitRes relayer.CommitmentResponse
+			)
 
-			hs, err := relayer.UpdatesWithHeaders(chains[src], chains[dst])
-			if err != nil {
-				return err
-			}
+			for {
+				hs, err = relayer.UpdatesWithHeaders(chains[src], chains[dst])
+				if err != nil {
+					return err
+				}
 
-			seqRecv, err := chains[dst].QueryNextSeqRecv(hs[dst].Height)
-			if err != nil {
-				return err
-			}
+				seqRecv, err = chains[dst].QueryNextSeqRecv(hs[dst].Height)
+				if err != nil {
+					return err
+				}
 
-			seqSend, err := chains[src].QueryNextSeqSend(hs[src].Height)
-			if err != nil {
-				return err
-			}
+				seqSend, err = chains[src].QueryNextSeqSend(hs[src].Height)
+				if err != nil {
+					return err
+				}
 
-			srcCommitRes, err := chains[src].QueryPacketCommitment(hs[src].Height-1, int64(seqSend-1))
-			if err != nil {
-				return err
-			}
+				srcCommitRes, err = chains[src].QueryPacketCommitment(hs[src].Height-1, int64(seqSend-1))
+				if err != nil {
+					return err
+				}
 
-			if srcCommitRes.Proof.Proof == nil {
-				panic("queried proof was nil, must be a mistake somewhere")
+				if srcCommitRes.Proof.Proof == nil {
+					continue
+				} else {
+					break
+				}
 			}
 
 			// reconstructing packet data here instead of retrieving from an indexed node
