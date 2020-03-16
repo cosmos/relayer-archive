@@ -77,6 +77,10 @@ jobs:
     # Make binary directory
     - name: create directory
       run: mkdir -p /tmp/build
+    
+    # Install jq
+    - name: Install jq
+      run: sudo apt install jq -y
 
     # Download gaiad binary
     - name: download gaiad
