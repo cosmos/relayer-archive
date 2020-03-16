@@ -97,7 +97,7 @@ func xfer() *cobra.Command {
 				sdk.NewCoins(amount),
 				chains[src].MustGetAddress(),
 				dstAddr,
-				!source,
+				source,
 				dstHeader.GetHeight()+1000,
 			)
 
