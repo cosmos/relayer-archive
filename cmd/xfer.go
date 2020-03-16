@@ -15,7 +15,7 @@ import (
 
 func xfer() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "xfer [src-chain-id] [dst-chain-id] [path-name] [amount] [dst-chain-addr]",
+		Use:   "xfer [src-chain-id] [dst-chain-id] [amount] [dst-chain-addr]",
 		Short: "xfer",
 		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
 		Args:  cobra.ExactArgs(5),
@@ -26,7 +26,12 @@ func xfer() *cobra.Command {
 				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], args[2]); err != nil {
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
+			}
+
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
@@ -136,7 +141,7 @@ func xfer() *cobra.Command {
 			return nil
 		},
 	}
-	return cmd
+	return pathFlag(cmd)
 }
 
 func xfersend() *cobra.Command {
