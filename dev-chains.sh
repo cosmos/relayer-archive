@@ -26,13 +26,13 @@ echo "ibc0 balance: $(relayer q balance ibc0)"
 echo "ibc1 balance: $(relayer q balance ibc1)"
 echo 
 echo "sending 10n0token from ibc0 to ibc1..."
-relayer tx raw xfer ibc0 ibc1 10transfer/ibczeroxfer/n0token true $(relayer keys show ibc1 testkey -a) -d
+relayer tx raw xfer ibc0 ibc1 10n0token true $(relayer keys show ibc1 testkey -a) -d
 echo
 echo "ibc0 balance: $(relayer q balance ibc0)"
 echo "ibc1 balance: $(relayer q balance ibc1)"
 echo
 echo "sending 10n0token back to ibc0 from ibc1..."
-relayer tx raw xfer ibc1 ibc0 10transfer/ibczeroxfer/n0token false $(relayer keys show ibc0 testkey -a) -d
+relayer tx raw xfer ibc1 ibc0 10n0token false $(relayer keys show ibc0 testkey -a) -d
 echo
 echo "ibc0 balance: $(relayer q balance ibc0)"
 echo "ibc1 balance: $(relayer q balance ibc1)"

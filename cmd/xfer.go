@@ -51,6 +51,12 @@ func xfer() *cobra.Command {
 				return err
 			}
 
+			if source {
+				amount.Denom = fmt.Sprintf("%s/%s/%s", chains[dst].PathEnd.PortID, chains[dst].PathEnd.ChannelID, amount.Denom)
+			} else {
+				amount.Denom = fmt.Sprintf("%s/%s/%s", chains[src].PathEnd.PortID, chains[src].PathEnd.ChannelID, amount.Denom)
+			}
+
 			dstAddr, err := sdk.AccAddressFromBech32(args[4])
 			if err != nil {
 				return err
