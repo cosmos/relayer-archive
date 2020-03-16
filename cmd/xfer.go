@@ -115,15 +115,15 @@ func xfer() *cobra.Command {
 			txs = relayer.RelayMsgs{
 				Dst: []sdk.Msg{
 					chains[dst].PathEnd.UpdateClient(hs[src], chains[dst].MustGetAddress()),
-					chains[dst].PathEnd.MsgRecvPacket(
-						chains[src].PathEnd,
+					chains[src].PathEnd.MsgRecvPacket(
+						chains[dst].PathEnd,
 						seqRecv.NextSequenceRecv,
 						xferPacket,
 						chanTypes.NewPacketResponse(
 							chains[src].PathEnd.PortID,
 							chains[src].PathEnd.ChannelID,
 							seqSend-1,
-							chains[dst].PathEnd.NewPacket(
+							chains[src].PathEnd.NewPacket(
 								chains[src].PathEnd,
 								seqSend-1,
 								xferPacket,
