@@ -44,7 +44,7 @@ func pathsGenCmd() *cobra.Command {
 			}
 
 			path := &relayer.Path{
-				Strategy: relayer.NewNaieveStrategy(),
+				Strategy: relayer.NewNaiveStrategy(),
 				Src: &relayer.PathEnd{
 					ChainID:      src,
 					ClientID:     randString(16),
@@ -233,7 +233,7 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		value string
 		err   error
 		path  = &relayer.Path{
-			Strategy: relayer.NewNaieveStrategy(),
+			Strategy: relayer.NewNaiveStrategy(),
 			Src: &relayer.PathEnd{
 				ChainID: src,
 			},
