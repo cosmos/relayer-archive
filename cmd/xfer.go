@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -57,8 +58,8 @@ func xfer() *cobra.Command {
 				Dst: []sdk.Msg{},
 			}
 
-			if err = txs.Send(chains[src], chains[dst]); err != nil {
-				return err
+			if txs.Send(chains[src], chains[dst]); !txs.Success() {
+				return fmt.Errorf("failed to send first transaction")
 			}
 
 			// Working on SRC chain :point_up:
@@ -121,7 +122,8 @@ func xfer() *cobra.Command {
 				Src: []sdk.Msg{},
 			}
 
-			return txs.Send(chains[src], chains[dst])
+			txs.Send(chains[src], chains[dst])
+			return nil
 		},
 	}
 	return cmd

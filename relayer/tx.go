@@ -52,15 +52,15 @@ func (src *Chain) CreateClients(dst *Chain) (err error) {
 	// TODO: maybe log something here that the client has been created?
 
 	// Send msgs to both chains
-	if err = clients.Send(src, dst); err != nil {
-		return err
+	if clients.Send(src, dst); clients.success {
+		src.Log(fmt.Sprintf("- Clients created: [%s]client(%s) and [%s]client(%s)",
+			src.ChainID, dst.ChainID, src.PathEnd.ClientID, dst.PathEnd.ClientID))
 	}
-
 	return nil
 }
 
 func (src *Chain) logCreateClient(dst *Chain, dstH uint64) {
-	src.Log(fmt.Sprintf("- [%s] -> creating client for %s (h{%d}) trust(%s)", src.ChainID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
+	src.Log(fmt.Sprintf("- [%s] -> creating client for [%s]header-height{%d} trust-period(%s)", src.ChainID, dst.ChainID, dstH, dst.GetTrustingPeriod()))
 }
 
 // CreateConnection runs the connection creation messages on timeout until they pass
@@ -77,8 +77,16 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 			break
 		}
 
-		if err = connSteps.Send(src, dst); err != nil {
-			return err
+		if connSteps.Send(src, dst); connSteps.success && connSteps.last {
+			conns, err := QueryConnectionPair(src, dst, 0, 0)
+			if err != nil {
+				return err
+			}
+			logConnectionStates(src, dst, conns)
+			src.Log(fmt.Sprintf("- Connection created between [%s]client{%s}conn{%s} -> [%s]client{%s}conn{%s}",
+				src.ChainID, src.PathEnd.ClientID, src.PathEnd.ConnectionID,
+				dst.ChainID, dst.PathEnd.ClientID, dst.PathEnd.ConnectionID))
+			break
 		}
 	}
 
@@ -89,7 +97,7 @@ func (src *Chain) CreateConnection(dst *Chain, to time.Duration) error {
 // with the given identifier between chains src and dst. If handshake hasn't started,
 // CreateConnetionStep will start the handshake on src
 func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
-	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
 
 	if err := src.PathEnd.Validate(); err != nil {
 		return nil, src.ErrCantSetPath(err)
@@ -114,16 +122,12 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		return nil, err
 	}
 
-	logConnectionStates(src, dst, conn)
-
 	// NOTE: We query connection at height - 1 because of the way tendermint returns
 	// proofs the commit for height n is contained in the header of height n + 1
 	cs, err := QueryClientStatePair(src, dst)
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: log these heights or something about client state? debug?
 
 	// Store the heights
 	srcConsH, dstConsH := int64(cs[scid].ClientState.GetLatestHeight()), int64(cs[dcid].ClientState.GetLatestHeight())
@@ -141,7 +145,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 		logConnectionStates(src, dst, conn)
 		out.Src = append(out.Src, src.PathEnd.ConnInit(dst.PathEnd, src.MustGetAddress()))
 
-		// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
+	// Handshake has started on dst (1 stepdone), relay `connOpenTry` and `updateClient` on src
 	case conn[scid].Connection.State == connState.UNINITIALIZED && conn[dcid].Connection.State == connState.INIT:
 		logConnectionStates(src, dst, conn)
 		out.Src = append(out.Src,
@@ -180,6 +184,7 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 			src.PathEnd.ConnConfirm(conn[dcid], src.MustGetAddress()),
 		)
+		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `connOpenConfirm` and `updateClient` to dst end
 	case conn[scid].Connection.State == connState.OPEN && conn[dcid].Connection.State == connState.TRYOPEN:
@@ -188,13 +193,14 @@ func (src *Chain) CreateConnectionStep(dst *Chain) (*RelayMsgs, error) {
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 			dst.PathEnd.ConnConfirm(conn[scid], dst.MustGetAddress()),
 		)
+		out.last = true
 	}
 
 	return out, nil
 }
 
 func logConnectionStates(src, dst *Chain, conn map[string]connTypes.ConnectionResponse) {
-	src.Log(fmt.Sprintf("- connection states -> [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
+	src.Log(fmt.Sprintf("- [%s]@{%d}conn(%s)-{%s} : [%s]@{%d}conn(%s)-{%s}",
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
 		src.PathEnd.ConnectionID,
@@ -227,8 +233,16 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 			break
 		}
 
-		if err = chanSteps.Send(src, dst); err != nil {
-			return err
+		if chanSteps.Send(src, dst); chanSteps.success && chanSteps.last {
+			chans, err := QueryChannelPair(src, dst, 0, 0)
+			if err != nil {
+				return err
+			}
+			logChannelStates(src, dst, chans)
+			src.Log(fmt.Sprintf("- Channel created between [%s]chan{%s}port{%s} -> [%s]chan{%s}port{%s}",
+				src.ChainID, src.PathEnd.ChannelID, src.PathEnd.PortID,
+				dst.ChainID, dst.PathEnd.ChannelID, dst.PathEnd.PortID))
+			break
 		}
 	}
 
@@ -239,7 +253,10 @@ func (src *Chain) CreateChannel(dst *Chain, ordered bool, to time.Duration) erro
 // identifiers between chains src and dst. If the handshake hasn't started, then CreateChannelStep
 // will begin the handshake on the src chain
 func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*RelayMsgs, error) {
-	out := &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}}
+	var (
+		out        = &RelayMsgs{Src: []sdk.Msg{}, Dst: []sdk.Msg{}, last: false}
+		scid, dcid = src.ChainID, dst.ChainID
+	)
 
 	if err := src.PathEnd.Validate(); err != nil {
 		return nil, src.ErrCantSetPath(err)
@@ -248,8 +265,6 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 	if err := dst.PathEnd.Validate(); err != nil {
 		return nil, dst.ErrCantSetPath(err)
 	}
-
-	scid, dcid := src.ChainID, dst.ChainID
 
 	hs, err := UpdatesWithHeaders(src, dst)
 	if err != nil {
@@ -308,6 +323,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 			src.PathEnd.UpdateClient(hs[dcid], src.MustGetAddress()),
 			src.PathEnd.ChanConfirm(chans[dcid], src.MustGetAddress()),
 		)
+		out.last = true
 
 	// Handshake has confirmed on src (3 steps done), relay `chanOpenConfirm` and `updateClient` to dst
 	case chans[scid].Channel.State == chanState.OPEN && chans[dcid].Channel.State == chanState.TRYOPEN:
@@ -316,6 +332,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 			dst.PathEnd.UpdateClient(hs[scid], dst.MustGetAddress()),
 			dst.PathEnd.ChanConfirm(chans[scid], dst.MustGetAddress()),
 		)
+		out.last = true
 	}
 
 	return out, nil
@@ -323,7 +340,7 @@ func (src *Chain) CreateChannelStep(dst *Chain, ordering chanState.Order) (*Rela
 
 func logChannelStates(src, dst *Chain, conn map[string]chanTypes.ChannelResponse) {
 	// TODO: replace channelID with portID?
-	src.Log(fmt.Sprintf("- channel states -> [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
+	src.Log(fmt.Sprintf("- [%s]@{%d}chan(%s)-{%s} : [%s]@{%d}chan(%s)-{%s}",
 		src.ChainID,
 		conn[src.ChainID].ProofHeight,
 		src.PathEnd.ChannelID,
