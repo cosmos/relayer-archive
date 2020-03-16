@@ -83,7 +83,7 @@ func xfer() *cobra.Command {
 			fmt.Printf("nextSeqRecv: %v\n", seqRecv)
 			fmt.Printf("nextSeqSend: %v\n", seqSend)
 
-			srcCommitRes, err := chains[src].QueryPacketCommitment(hs[src].Height, int64(seqSend-1))
+			srcCommitRes, err := chains[src].QueryPacketCommitment(hs[src].Height-1, int64(seqSend-1))
 			if err != nil {
 				return err
 			}
@@ -114,10 +114,10 @@ func xfer() *cobra.Command {
 						chanTypes.NewPacketResponse(
 							chains[src].PathEnd.PortID,
 							chains[src].PathEnd.ChannelID,
-							seqSend,
+							seqSend-1,
 							chains[dst].PathEnd.NewPacket(
 								chains[src].PathEnd,
-								seqSend,
+								seqSend-1,
 								xferPacket,
 							),
 							srcCommitRes.Proof.Proof,
