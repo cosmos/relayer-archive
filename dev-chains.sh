@@ -32,7 +32,7 @@ relayer q balance ibc0
 relayer q balance ibc1
 
 # Send the n0token back
-relayer tx raw xfer ibc1 ibc0 10transfer/testchannelid/n0token false $(relayer keys show ibc1 testkey -a) -d
+relayer tx raw xfer ibc1 ibc0 10transfer/testchannelid/n0token false $(relayer keys show ibc0 testkey -a) -d
 
 echo "Balances post-second-packet:"
 relayer q balance ibc0
