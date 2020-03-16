@@ -48,7 +48,7 @@ func transactionCmd() *cobra.Command {
 
 func createClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clients [src-chain-id] [dst-chain-id] [[path-name]]",
+		Use:   "clients [src-chain-id] [dst-chain-id]",
 		Short: "create a clients between two configured chains with a configured path",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -58,19 +58,19 @@ func createClientsCmd() *cobra.Command {
 				return err
 			}
 
-			name := ""
-			if len(args) > 2 {
-				name = args[2]
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
 			return chains[src].CreateClients(chains[dst])
 		},
 	}
-	return cmd
+	return pathFlag(cmd)
 }
 
 func createConnectionCmd() *cobra.Command {
@@ -91,12 +91,12 @@ func createConnectionCmd() *cobra.Command {
 				return err
 			}
 
-			name := ""
-			if len(args) > 2 {
-				name = args[2]
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
@@ -104,12 +104,12 @@ func createConnectionCmd() *cobra.Command {
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return pathFlag(timeoutFlag(cmd))
 }
 
 func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel [src-chain-id] [dst-chain-id] [[path-name]]",
+		Use:   "channel [src-chain-id] [dst-chain-id]",
 		Short: "create a channel between two configured chains with a configured path",
 		Long:  "This command is meant to be used to repair or create a channel between two chains with a configured path in the config file",
 		Args:  cobra.RangeArgs(2, 3),
@@ -125,12 +125,12 @@ func createChannelCmd() *cobra.Command {
 				return err
 			}
 
-			name := ""
-			if len(args) > 2 {
-				name = args[2]
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
@@ -138,12 +138,12 @@ func createChannelCmd() *cobra.Command {
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return pathFlag(timeoutFlag(cmd))
 }
 
 func fullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "full-path [src-chain-id] [dst-chain-id] [[path-name]]",
+		Use:   "full-path [src-chain-id] [dst-chain-id]",
 		Short: "create clients, connection, and channel between two configured chains with a configured path",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -158,12 +158,12 @@ func fullPathCmd() *cobra.Command {
 				return err
 			}
 
-			name := ""
-			if len(args) > 2 {
-				name = args[2]
+			pth, err := cmd.Flags().GetString(flagPath)
+			if err != nil {
+				return err
 			}
 
-			if _, err = setPathsFromArgs(chains[src], chains[dst], name); err != nil {
+			if _, err = setPathsFromArgs(chains[src], chains[dst], pth); err != nil {
 				return err
 			}
 
@@ -183,7 +183,7 @@ func fullPathCmd() *cobra.Command {
 		},
 	}
 
-	return timeoutFlag(cmd)
+	return pathFlag(timeoutFlag(cmd))
 }
 
 func transferCmd() *cobra.Command {

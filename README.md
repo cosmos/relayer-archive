@@ -7,7 +7,7 @@ interested in building their own relayer can come for working examples.
 
 ### Demoing the Relayer
 
-While the relayer is under active development, it is meant primarily as a learning tool to better understand the Inter-Blockchain Communication (IBC) protocol. The following demo 
+While the relayer is under active development, it is meant primarily as a learning tool to better understand the Inter-Blockchain Communication (IBC) protocol. In that vein, the following demo demonstrates the core functionality which will remain even after the changes:
 
 ```bash
 # two-chainz creates two gaia-based chains with data directories in this 
