@@ -50,7 +50,7 @@ func xfer() *cobra.Command {
 			// NOTE: this will not work in the case where tokens are sent from A -> B -> C
 			// Need a function in the SDK to determine from a denom if the tokens are from this chain
 			var source bool
-			if strings.Contains(amount.GetDenom(), "/") {
+			if !strings.Contains(amount.GetDenom(), "/") {
 				source = true
 			} else {
 				source = false
