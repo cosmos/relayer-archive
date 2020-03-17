@@ -106,5 +106,9 @@ func getAddInputs(cmd *cobra.Command) (file string, url string, err error) {
 		return
 	}
 
-	return file, url, nil
+	if file != "" && url != "" {
+		return "", "", errMultipleAddFlags
+	}
+
+	return
 }
