@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -22,23 +21,19 @@ func xfersend() *cobra.Command {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
 			if err != nil {
-				fmt.Println(1)
 				return err
 			}
 
 			if err = chains[src].AddPath(dcli, dcon, args[2], args[4]); err != nil {
-				fmt.Println(2)
 				return err
 			}
 
 			if err = chains[dst].AddPath(dcli, dcon, args[3], args[5]); err != nil {
-				fmt.Println(3)
 				return err
 			}
 
 			amount, err := sdk.ParseCoin(args[6])
 			if err != nil {
-				fmt.Println(4)
 				return err
 			}
 
@@ -55,13 +50,11 @@ func xfersend() *cobra.Command {
 
 			dstAddr, err := sdk.AccAddressFromBech32(args[7])
 			if err != nil {
-				fmt.Println(5)
 				return err
 			}
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {
-				fmt.Println(6)
 				return err
 			}
 
