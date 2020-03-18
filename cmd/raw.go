@@ -56,9 +56,6 @@ func updateClientCmd() *cobra.Command {
 			if err = chains[src].AddPath(args[2], dcon, dcha, dpor); err != nil {
 				return err
 			}
-			if err != nil {
-				return err
-			}
 
 			dstHeader, err := chains[dst].UpdateLiteWithHeader()
 			if err != nil {

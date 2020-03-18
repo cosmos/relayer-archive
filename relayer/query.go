@@ -160,8 +160,8 @@ func QueryClientConsensusStatePair(src, dst *Chain, srcH, dstH, srcClientConsH, 
 	var wg sync.WaitGroup
 
 	chps := []chh{
-		chh{src, srcH, srcClientConsH},
-		chh{dst, dstH, dstClientConsH},
+		{src, srcH, srcClientConsH},
+		{dst, dstH, dstClientConsH},
 	}
 
 	for _, chain := range chps {
@@ -381,8 +381,8 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connType
 	var wg sync.WaitGroup
 
 	chps := []chpair{
-		chpair{src, srcH},
-		chpair{dst, dstH},
+		{src, srcH},
+		{dst, dstH},
 	}
 
 	for _, chain := range chps {
@@ -462,8 +462,8 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]chanTypes.C
 	var wg sync.WaitGroup
 
 	chps := []chpair{
-		chpair{src, srcH},
-		chpair{dst, dstH},
+		{src, srcH},
+		{dst, dstH},
 	}
 
 	for _, chain := range chps {
