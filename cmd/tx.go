@@ -22,7 +22,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
-	"github.com/cosmos/relayer/relayer"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -48,9 +48,10 @@ func transactionCmd() *cobra.Command {
 
 func createClientsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "clients [src-chain-id] [dst-chain-id]",
-		Short: "create a clients between two configured chains with a configured path",
-		Args:  cobra.RangeArgs(2, 3),
+		Use:     "clients [src-chain-id] [dst-chain-id]",
+		Aliases: []string{"clnts"},
+		Short:   "create a clients between two configured chains with a configured path",
+		Args:    cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -75,10 +76,11 @@ func createClientsCmd() *cobra.Command {
 
 func createConnectionCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "connection [src-chain-id] [dst-chain-id] [[path-name]]",
-		Short: "create a connection between two configured chains with a configured path",
-		Long:  "This command is meant to be used to repair or create a connection between two chains with a configured path in the config file",
-		Args:  cobra.RangeArgs(2, 3),
+		Use:     "connection [src-chain-id] [dst-chain-id] [[path-name]]",
+		Aliases: []string{"conn"},
+		Short:   "create a connection between two configured chains with a configured path",
+		Long:    "This command is meant to be used to repair or create a connection between two chains with a configured path in the config file",
+		Args:    cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -109,10 +111,11 @@ func createConnectionCmd() *cobra.Command {
 
 func createChannelCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel [src-chain-id] [dst-chain-id]",
-		Short: "create a channel between two configured chains with a configured path",
-		Long:  "This command is meant to be used to repair or create a channel between two chains with a configured path in the config file",
-		Args:  cobra.RangeArgs(2, 3),
+		Use:     "channel [src-chain-id] [dst-chain-id]",
+		Aliases: []string{"chan"},
+		Short:   "create a channel between two configured chains with a configured path",
+		Long:    "This command is meant to be used to repair or create a channel between two chains with a configured path in the config file",
+		Args:    cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -143,9 +146,10 @@ func createChannelCmd() *cobra.Command {
 
 func fullPathCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "full-path [src-chain-id] [dst-chain-id]",
-		Short: "create clients, connection, and channel between two configured chains with a configured path",
-		Args:  cobra.RangeArgs(2, 3),
+		Use:     "full-path [src-chain-id] [dst-chain-id]",
+		Aliases: []string{"link", "connect", "pth"},
+		Short:   "create clients, connection, and channel between two configured chains with a configured path",
+		Args:    cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -188,10 +192,11 @@ func fullPathCmd() *cobra.Command {
 
 func transferCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "transfer [src-chain-id] [dst-chain-id] [amount] [is-source] [dst-chain-addr]",
-		Short: "transfer",
-		Long:  "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
-		Args:  cobra.ExactArgs(5),
+		Use:     "transfer [src-chain-id] [dst-chain-id] [amount] [is-source] [dst-chain-addr]",
+		Aliases: []string{"xfer"},
+		Short:   "transfer",
+		Long:    "This sends tokens from a relayers configured wallet on chain src to a dst addr on dst",
+		Args:    cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			src, dst := args[0], args[1]
 			chains, err := config.Chains.Gets(src, dst)
@@ -302,8 +307,8 @@ func transferCmd() *cobra.Command {
 			txs = relayer.RelayMsgs{
 				Dst: []sdk.Msg{
 					chains[dst].PathEnd.UpdateClient(hs[src], chains[dst].MustGetAddress()),
-					chains[src].PathEnd.MsgRecvPacket(
-						chains[dst].PathEnd,
+					chains[dst].PathEnd.MsgRecvPacket(
+						chains[src].PathEnd,
 						seqRecv.NextSequenceRecv,
 						xferPacket,
 						chanTypes.NewPacketResponse(
@@ -311,7 +316,7 @@ func transferCmd() *cobra.Command {
 							chains[src].PathEnd.ChannelID,
 							seqSend-1,
 							chains[src].PathEnd.NewPacket(
-								chains[src].PathEnd,
+								chains[dst].PathEnd,
 								seqSend-1,
 								xferPacket,
 							),
