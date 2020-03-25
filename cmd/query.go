@@ -603,12 +603,12 @@ func queryPacketAck() *cobra.Command {
 }
 
 func queryOutput(res interface{}, chain *relayer.Chain, cmd *cobra.Command) error {
-	text, err := cmd.Flags().GetBool("text")
+	text, err := cmd.Flags().GetBool(flagText)
 	if err != nil {
 		panic(err)
 	}
 
-	indent, err := cmd.Flags().GetBool("indent")
+	indent, err := cmd.Flags().GetBool(flags.FlagIndentResponse)
 	if err != nil {
 		panic(err)
 	}
@@ -617,12 +617,12 @@ func queryOutput(res interface{}, chain *relayer.Chain, cmd *cobra.Command) erro
 
 func getPrintingFlags(cmd *cobra.Command) (text, indent bool) {
 	var err error
-	text, err = cmd.Flags().GetBool("text")
+	text, err = cmd.Flags().GetBool(flagText)
 	if err != nil {
 		panic(err)
 	}
 
-	indent, err = cmd.Flags().GetBool("indent")
+	indent, err = cmd.Flags().GetBool(flags.FlagIndentResponse)
 	if err != nil {
 		panic(err)
 	}
