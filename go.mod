@@ -1,4 +1,4 @@
-module github.com/iqlusioninc/relayer
+module github.com/cosmos/relayer
 
 go 1.13
 

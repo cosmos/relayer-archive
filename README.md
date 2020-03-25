@@ -1,6 +1,6 @@
 # Relayer
 
-![CI Script](https://github.com/iqlusioninc/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
+![CI Script](https://github.com/cosmos/relayer/workflows/Build%20then%20run%20CI%20Chains/badge.svg)
 
 The `relayer` package contains some basic relayer implementations that are
 meant to be used by users wishing to relay packets between IBC enabled chains.

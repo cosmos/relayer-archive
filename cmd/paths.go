@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iqlusioninc/relayer/relayer"
+	"github.com/cosmos/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
