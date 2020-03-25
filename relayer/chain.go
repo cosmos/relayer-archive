@@ -143,6 +143,9 @@ func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
 func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 	// Fetch account and sequence numbers for the account
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
 	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(src.MustGetAddress())
 	if err != nil {
 		return nil, err
@@ -231,6 +234,11 @@ func (src *Chain) GetAddress() (sdk.AccAddress, error) {
 	if src.address != nil {
 		return src.address, nil
 	}
+
+	// Set sdk config to use custom Bech32 account prefix
+	sdkConf := sdk.GetConfig()
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
 	// Signing key for src chain
 	srcAddr, err := src.Keybase.Get(src.Key)
 	if err != nil {
@@ -306,9 +314,12 @@ func (src *Chain) Print(toPrint interface{}, text, indent bool) error {
 	)
 
 	switch {
+	case indent && text:
+		return fmt.Errorf("must pass either indent or text, not both")
 	case indent:
 		out, err = src.Amino.MarshalJSONIndent(toPrint, "", "  ")
 	case text:
+		// TODO: This isn't really a good option,
 		out = []byte(fmt.Sprintf("%v", toPrint))
 	default:
 		out, err = src.Amino.MarshalJSON(toPrint)

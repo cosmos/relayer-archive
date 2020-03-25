@@ -67,8 +67,8 @@ gaiad gentx --name validator --amount 90000000000$DENOM
 gaiad collect-gentxs
 
 # Setup the service definitions
-rly testnets gaia-service $USER $HOME > gaiad.service
-rly testnets faucet-service $USER $HOME $CHAINID $RLYKEY 100000$DENOM > faucet.service
+rly svc gaia $USER $HOME > gaiad.service
+rly svc faucet $USER $HOME $CHAINID $RLYKEY 100000$DENOM > faucet.service
 sudo mv gaiad.service /etc/systemd/system/gaiad.service
 sudo mv faucet.service /etc/systemd/system/faucet.service
 sudo systemctl daemon-reload
@@ -144,5 +144,16 @@ rly paths add {{src_chain}} {{dst_chain_id}} {{path_name}}
 # or generate one...
 rly pth gen {{src_chain_id}} {{dst_chain_id}} {{path_name}}
 
-# then send some funds!
+# ensure that the path exists
+rly tx link {{src_chain_id}} {{dst_chain_id}}
+
+# then send some funds back and forth!
+rly q bal {{src_chain_id}}
+rly q bal {{dst_chain_id}}
+rly tx transfer {{src_chain_id}} {{dst_chain_id}} {{amount}} true $(rly ch addr {{dst_chain_id}})
+rly q bal {{src_chain_id}}
+rly q bal {{dst_chain_id}}
+rly tx xfer {{ds_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
+rly q bal {{src_chain_id}}
+rly q bal {{dst_chain_id}}
 ```

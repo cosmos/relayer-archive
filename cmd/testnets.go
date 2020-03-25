@@ -25,74 +25,7 @@ func testnetsCmd() *cobra.Command {
 	cmd.AddCommand(
 		faucetStartCmd(),
 		faucetRequestCmd(),
-		gaiaServiceCmd(),
-		faucetService(),
 	)
-	return cmd
-}
-
-func gaiaServiceCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "gaia-service [user] [home]",
-		Aliases: []string{"gaia-svc"},
-		Short:   "gaia-service returns a sample gaiad service file",
-		Args:    cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf(`[Unit]
-Description=gaiad
-After=network.target
-[Service]
-Type=simple
-User=%s
-WorkingDirectory=%s
-ExecStart=%s/go/bin/gaiad start --pruning=nothing
-Restart=on-failure
-RestartSec=3
-LimitNOFILE=4096
-[Install]
-WantedBy=multi-user.target
-`, args[0], args[1], args[1])
-		},
-	}
-	return cmd
-}
-
-func faucetService() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "faucet-service [user] [home] [chain-id] [key-name] [amount]",
-		Aliases: []string{"faucet-svc"},
-		Short:   "faucet-service returns a sample faucet service file",
-		Args:    cobra.ExactArgs(5),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			chain, err := config.Chains.Get(args[2])
-			if err != nil {
-				return err
-			}
-			_, err = chain.Keybase.Get(args[3])
-			if err != nil {
-				return err
-			}
-			_, err = sdk.ParseCoin(args[4])
-			if err != nil {
-				return err
-			}
-			fmt.Printf(`[Unit]
-Description=faucet
-After=network.target
-[Service]
-Type=simple
-User=%s
-WorkingDirectory=%s
-ExecStart=%s/go/bin/rly testnets faucet %s %s %s
-Restart=on-failure
-RestartSec=3
-LimitNOFILE=4096
-[Install]
-WantedBy=multi-user.target
-`, args[0], args[1], args[1], args[2], args[3], args[4])
-			return nil
-		},
-	}
 	return cmd
 }
 
