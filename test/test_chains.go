@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/go-amino"
 	
-	. "github.com/iqlusioninc/relayer/relayer"
+	. "github.com/cosmos/relayer/relayer"
 	"github.com/CosmicCompass/post-chain/app"
 )
 

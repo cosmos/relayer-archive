@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	. "github.com/iqlusioninc/relayer/relayer"
+	. "github.com/cosmos/relayer/relayer"
 )
 
 // testClientPair tests that the client for src on dst and dst on src are the only clients on those chains
