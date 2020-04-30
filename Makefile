@@ -1,7 +1,6 @@
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT  := $(shell git log -1 --format='%H')
-
-all: ci-lint ci-test install
+all: ci-lint install
 
 ###############################################################################
 # Build / Install
@@ -28,37 +27,41 @@ build-zip: go.sum
 	@GOOS=windows GOARCH=amd64 go build -mod=readonly $(BUILD_FLAGS) -o build/windows-amd64-rly.exe main.go
 	@tar -czvf release.tar.gz ./build
 
-
 install: go.sum
 	@echo "installing rly binary..."
-	@go build -mod=readonly $(BUILD_FLAGS) -o ${GOBIN}/rly main.go
+	@go build -mod=readonly $(BUILD_FLAGS) -o $${GOBIN-$${GOPATH-$$HOME/go}/bin}/rly main.go
 
 ###############################################################################
 # Tests / CI
 ###############################################################################
+test:
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/...
+
+test-gaia:
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestGaia*
+
+test-mtd:
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestMtd*
+
+test-rocketzone:
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestRocket*
+
+test-agoric:
+	@TEST_DEBUG=true go test -mod=readonly -v -coverprofile coverage.out ./test/... -run TestAgoric*
+
+test-coco:
+	@TEST_DEBUG=true go test -mod=mod -v -coverprofile coverage.out ./test/... -run TestCoCo*
 
 coverage:
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
 
-ci-test:
-	@echo "executing unit tests..."
-	@go test -mod=readonly -v -coverprofile coverage.out ./... 
-
 ci-lint:
-	@echo "running GolangCI-Lint..."
 	@GO111MODULE=on golangci-lint run
-	@echo "formatting..."
 	@find . -name '*.go' -type f -not -path "*.git*" | xargs gofmt -d -s
-	@echo "verifying modules..."
 	@go mod verify
 
-.PHONY: install build ci-test ci-lint coverage clean
+.PHONY: install build ci-lint coverage clean
 
-# TODO: Port reproducable build scripts from gaia
-# TODO: Build should output builds for macos|windows|linux
-# TODO: make test should run ci-chains but all the way to an OPEN connection
-#       and attempt to send a packet from ibc0 -> ibc1
-# TODO: Add linting support
-# TODO: add support for versioning
-# TODO: add ldflags for version of sdk, gaia and relayer, other useful/important info
+# TODO: Port reproducable build scripts from gaia for relayer
+# TODO: Full tested and working releases

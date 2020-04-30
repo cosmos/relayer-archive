@@ -20,7 +20,7 @@ func testnetsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "testnets",
 		Aliases: []string{"tst"},
-		Short:   "commands for managing and using relayer faucets",
+		Short:   "commands for joining and running relayer testnets",
 	}
 	cmd.AddCommand(
 		faucetStartCmd(),
@@ -67,7 +67,7 @@ func faucetRequestCmd() *cobra.Command {
 				keyName = chain.Key
 			}
 
-			info, err := chain.Keybase.Get(keyName)
+			info, err := chain.Keybase.Key(keyName)
 			if err != nil {
 				return err
 			}
@@ -105,7 +105,7 @@ func faucetStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			info, err := chain.Keybase.Get(args[1])
+			info, err := chain.Keybase.Key(args[1])
 			if err != nil {
 				return err
 			}

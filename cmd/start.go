@@ -16,6 +16,12 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
@@ -25,7 +31,7 @@ func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start [path-name]",
 		Aliases: []string{"st"},
-		Short:   "Start runs the relayer strategy associated with a path between the two chains",
+		Short:   "Start the listening relayer on a given path",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, src, dst, err := config.ChainsFromPath(args[0])
@@ -33,13 +39,30 @@ func startCmd() *cobra.Command {
 				return err
 			}
 
-			strategy, err := config.Paths.MustGet(args[0]).GetStrategy()
+			path := config.Paths.MustGet(args[0])
+			done, err := relayer.RunStrategy(c[src], c[dst], path.MustGetStrategy(), path.Ordered())
 			if err != nil {
-				return nil
+				return err
 			}
 
-			return strategy.Run(c[src], c[dst])
+			trapSignal(done)
+			return nil
 		},
 	}
 	return cmd
+}
+
+// trap signal waits for a SIGINT or SIGTERM and then sends down the done channel
+func trapSignal(done func()) {
+	sigCh := make(chan os.Signal, 1)
+
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	// wait for a signal
+	sig := <-sigCh
+	fmt.Println("Signal Recieved:", sig.String())
+	close(sigCh)
+
+	// call the cleanup func
+	done()
 }

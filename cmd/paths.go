@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"os"
-	"strings"
-	"time"
 
-	"github.com/cosmos/relayer/relayer"
+	connTypes "github.com/cosmos/cosmos-sdk/x/ibc/03-connection/types"
+	chanTypes "github.com/cosmos/cosmos-sdk/x/ibc/04-channel/types"
+	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 )
@@ -18,10 +18,10 @@ func pathsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "paths",
 		Aliases: []string{"pth"},
-		Short:   "commands to manage path configurations",
+		Short:   "manage path configurations",
 		Long: `
-A path represents the full path for communication between two chains, including the client, 
-connection, and channel ids from both the source and destination chains.`,
+A path represents the "full path" or "link" for communication between two chains. This includes the client, 
+connection, and channel ids from both the source and destination chains as well as the strategy to use when relaying`,
 	}
 
 	cmd.AddCommand(
@@ -30,54 +30,242 @@ connection, and channel ids from both the source and destination chains.`,
 		pathsAddCmd(),
 		pathsGenCmd(),
 		pathsDeleteCmd(),
+		pathsFindCmd(),
 	)
 
 	return cmd
 }
 
+func pathsFindCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "find",
+		Short: "WIP: finds any existing paths between any configured chains and outputs them to stdout",
+		Args:  cobra.ExactArgs(0),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			paths, err := relayer.FindPaths(config.Chains)
+			if err != nil {
+				return err
+			}
+			return config.Chains[0].Print(paths, false, false)
+		},
+	}
+	return cmd
+}
+
 func pathsGenCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "generate [src-chain-id] [dst-chain-id] [name]",
+		Use:     "generate [src-chain-id] [src-port] [dst-chain-id] [dst-port] [name]",
 		Aliases: []string{"gen"},
-		Short:   "generate identifiers for a new path between src and dst",
-		Args:    cobra.ExactArgs(3),
+		Short:   "generate identifiers for a new path between src and dst, reusing any that exist",
+		Args:    cobra.ExactArgs(5),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			src, dst := args[0], args[1]
-			_, err := config.Chains.Gets(src, dst)
+			src, srcPort, dst, dstPort := args[0], args[1], args[2], args[3]
+			path := &relayer.Path{
+				Src: &relayer.PathEnd{
+					ChainID: src,
+					PortID:  srcPort,
+				},
+				Dst: &relayer.PathEnd{
+					ChainID: dst,
+					PortID:  dstPort,
+				},
+				Strategy: &relayer.StrategyCfg{
+					Type: "naive",
+				},
+			}
+			c, err := config.Chains.Gets(src, dst)
 			if err != nil {
 				return fmt.Errorf("chains need to be configured before paths to them can be added: %w", err)
 			}
 
-			path := &relayer.Path{
-				Strategy: relayer.NewNaiveStrategy(),
-				Src: &relayer.PathEnd{
-					ChainID:      src,
-					ClientID:     randString(16),
-					ConnectionID: randString(16),
-					ChannelID:    randString(16),
-					PortID:       "transfer",
-				},
-				Dst: &relayer.PathEnd{
-					ChainID:      dst,
-					ClientID:     randString(16),
-					ConnectionID: randString(16),
-					ChannelID:    randString(16),
-					PortID:       "transfer",
-				},
+			unordered, err := cmd.Flags().GetBool(flagOrder)
+			if err != nil {
+				return nil
 			}
 
-			pths, err := config.Paths.Add(args[2], path)
+			if unordered {
+				path.Src.Order = "UNORDERED"
+				path.Dst.Order = "UNORDERED"
+			} else {
+				path.Src.Order = "ORDERED"
+				path.Dst.Order = "ORDERED"
+			}
+
+			srcClients, err := c[src].QueryClients(1, 1000)
 			if err != nil {
 				return err
 			}
 
-			c := config
-			c.Paths = pths
+			for _, c := range srcClients {
+				// TODO: support other client types through a switch here as they become available
+				clnt, ok := c.(tmclient.ClientState)
+				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
+					if clnt.GetChainID() == dst && !clnt.IsFrozen() {
+						path.Src.ClientID = c.GetID()
+					}
+				}
+			}
 
-			return overWriteConfig(cmd, c)
+			dstClients, err := c[dst].QueryClients(1, 1000)
+			if err != nil {
+				return err
+			}
+
+			for _, c := range dstClients {
+				// TODO: support other client types through a switch here as they become available
+				clnt, ok := c.(tmclient.ClientState)
+				if ok && clnt.LastHeader.Commit != nil && clnt.LastHeader.Header != nil {
+					if c.GetChainID() == src && !c.IsFrozen() {
+						path.Dst.ClientID = c.GetID()
+					}
+				}
+			}
+
+			switch {
+			case path.Src.ClientID == "" && path.Dst.ClientID == "":
+				path.Src.ClientID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ClientID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ChannelID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ChannelID = relayer.RandLowerCaseLetterString(10)
+				if err = config.Paths.Add(args[4], path); err != nil {
+					return err
+				}
+				return overWriteConfig(cmd, config)
+			case path.Src.ClientID == "" && path.Dst.ClientID != "":
+				path.Src.ClientID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ChannelID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ChannelID = relayer.RandLowerCaseLetterString(10)
+				if err = config.Paths.Add(args[4], path); err != nil {
+					return err
+				}
+				return overWriteConfig(cmd, config)
+			case path.Dst.ClientID == "" && path.Src.ClientID != "":
+				path.Dst.ClientID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ChannelID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ChannelID = relayer.RandLowerCaseLetterString(10)
+				if err = config.Paths.Add(args[4], path); err != nil {
+					return err
+				}
+				return overWriteConfig(cmd, config)
+			}
+
+			srcConns, err := c[src].QueryConnections(1, 1000)
+			if err != nil {
+				return err
+			}
+
+			var srcCon connTypes.IdentifiedConnectionEnd
+			for _, c := range srcConns {
+				if c.Connection.ClientID == path.Src.ClientID {
+					srcCon = c
+					path.Src.ConnectionID = c.Identifier
+				}
+			}
+
+			dstConns, err := c[dst].QueryConnections(1, 1000)
+			if err != nil {
+				return err
+			}
+
+			var dstCon connTypes.IdentifiedConnectionEnd
+			for _, c := range dstConns {
+				if c.Connection.ClientID == path.Dst.ClientID {
+					dstCon = c
+					path.Dst.ConnectionID = c.Identifier
+				}
+			}
+
+			switch {
+			case path.Src.ConnectionID != "" && path.Dst.ConnectionID != "":
+				// If we have identified a connection, make sure that each end is the
+				// other's counterparty and that the connection is open. In the failure case
+				// we should generate a new connection identifier
+				dstCpForSrc := srcCon.Connection.Counterparty.ConnectionID == dstCon.Identifier
+				srcCpForDst := dstCon.Connection.Counterparty.ConnectionID == srcCon.Identifier
+				srcOpen := srcCon.Connection.GetState().String() == "OPEN"
+				dstOpen := dstCon.Connection.GetState().String() == "OPEN"
+				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen) {
+					path.Src.ConnectionID = relayer.RandLowerCaseLetterString(10)
+					path.Dst.ConnectionID = relayer.RandLowerCaseLetterString(10)
+					path.Src.ChannelID = relayer.RandLowerCaseLetterString(10)
+					path.Dst.ChannelID = relayer.RandLowerCaseLetterString(10)
+					if err = config.Paths.Add(args[4], path); err != nil {
+						return err
+					}
+					return overWriteConfig(cmd, config)
+				}
+			default:
+				path.Src.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ConnectionID = relayer.RandLowerCaseLetterString(10)
+				path.Src.ChannelID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ChannelID = relayer.RandLowerCaseLetterString(10)
+				if err = config.Paths.Add(args[4], path); err != nil {
+					return err
+				}
+				return overWriteConfig(cmd, config)
+			}
+
+			srcChans, err := c[src].QueryChannels(1, 1000)
+			if err != nil {
+				return err
+			}
+
+			var srcChan chanTypes.IdentifiedChannel
+			for _, c := range srcChans {
+				if c.Channel.ConnectionHops[0] == path.Src.ConnectionID {
+					srcChan = c
+					path.Src.ChannelID = c.ChannelIdentifier
+				}
+			}
+
+			dstChans, err := c[dst].QueryChannels(1, 1000)
+			if err != nil {
+				return err
+			}
+
+			var dstChan chanTypes.IdentifiedChannel
+			for _, c := range dstChans {
+				if c.Channel.ConnectionHops[0] == path.Dst.ConnectionID {
+					dstChan = c
+					path.Dst.ChannelID = c.ChannelIdentifier
+				}
+			}
+
+			switch {
+			case path.Src.ChannelID != "" && path.Dst.ChannelID != "":
+				dstCpForSrc := srcChan.Channel.Counterparty.ChannelID == dstChan.ChannelIdentifier
+				srcCpForDst := dstChan.Channel.Counterparty.ChannelID == srcChan.ChannelIdentifier
+				srcOpen := srcChan.Channel.GetState().String() == "OPEN"
+				dstOpen := dstChan.Channel.GetState().String() == "OPEN"
+				srcPort := srcChan.PortIdentifier == path.Src.PortID
+				dstPort := dstChan.PortIdentifier == path.Dst.PortID
+				srcOrder := srcChan.Channel.Ordering.String() == path.Src.Order
+				dstOrder := dstChan.Channel.Ordering.String() == path.Dst.Order
+				if !(dstCpForSrc && srcCpForDst && srcOpen && dstOpen && srcPort && dstPort && srcOrder && dstOrder) {
+					path.Src.ChannelID = relayer.RandLowerCaseLetterString(10)
+					path.Dst.ChannelID = relayer.RandLowerCaseLetterString(10)
+				}
+				if err = config.Paths.Add(args[4], path); err != nil {
+					return err
+				}
+				return overWriteConfig(cmd, config)
+			default:
+				path.Src.ChannelID = relayer.RandLowerCaseLetterString(10)
+				path.Dst.ChannelID = relayer.RandLowerCaseLetterString(10)
+				if err = config.Paths.Add(args[4], path); err != nil {
+					return err
+				}
+				return overWriteConfig(cmd, config)
+			}
 		},
 	}
-	return cmd
+	return orderFlag(cmd)
 }
 
 func pathsDeleteCmd() *cobra.Command {
@@ -102,7 +290,7 @@ func pathsListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"l"},
-		Short:   "print out configured paths with direction",
+		Short:   "print out configured paths",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			jsn, err := cmd.Flags().GetBool(flagJSON)
 			if err != nil {
@@ -132,7 +320,74 @@ func pathsListCmd() *cobra.Command {
 			default:
 				i := 0
 				for k, pth := range config.Paths {
-					fmt.Printf("%2d: %-20s >> [%s]port{%s} -> [%s]port{%s}\n", i, k, pth.Src.ChainID, pth.Src.PortID, pth.Dst.ChainID, pth.Dst.PortID)
+					// TODO: replace this with relayer.QueryPathStatus
+					var (
+						chains     = "✘"
+						clients    = "✘"
+						connection = "✘"
+						channel    = "✘"
+					)
+					src, dst := pth.Src.ChainID, pth.Dst.ChainID
+					ch, err := config.Chains.Gets(src, dst)
+					if err == nil {
+						chains = "✔"
+						err = ch[src].SetPath(pth.Src)
+						if err != nil {
+							printPath(i, k, pth, chains, clients, connection, channel)
+							i++
+							continue
+						}
+						err = ch[dst].SetPath(pth.Dst)
+						if err != nil {
+							printPath(i, k, pth, chains, clients, connection, channel)
+							i++
+							continue
+						}
+					} else {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					srcCs, err := ch[src].QueryClientState()
+					dstCs, _ := ch[dst].QueryClientState()
+					if err == nil && srcCs != nil && dstCs != nil {
+						clients = "✔"
+					} else {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					srch, err := ch[src].QueryLatestHeight()
+					dsth, _ := ch[dst].QueryLatestHeight()
+					if err != nil || srch == -1 || dsth == -1 {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					srcConn, err := ch[src].QueryConnection(srch)
+					dstConn, _ := ch[dst].QueryConnection(dsth)
+					if err == nil && srcConn.Connection.Connection.State.String() == "OPEN" && dstConn.Connection.Connection.State.String() == "OPEN" {
+						connection = "✔"
+					} else {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					srcChan, err := ch[src].QueryChannel(srch)
+					dstChan, _ := ch[dst].QueryChannel(dsth)
+					if err == nil && srcChan.Channel.Channel.State.String() == "OPEN" && dstChan.Channel.Channel.State.String() == "OPEN" {
+						channel = "✔"
+					} else {
+						printPath(i, k, pth, chains, clients, connection, channel)
+						i++
+						continue
+					}
+
+					printPath(i, k, pth, chains, clients, connection, channel)
 					i++
 				}
 				return nil
@@ -140,6 +395,30 @@ func pathsListCmd() *cobra.Command {
 		},
 	}
 	return yamlFlag(jsonFlag(cmd))
+}
+
+func printPath(i int, k string, pth *relayer.Path, chains, clients, connection, channel string) {
+	fmt.Printf("%2d: %-20s -> chns(%s) clnts(%s) conn(%s) chan(%s) (%s:%s<>%s:%s)\n",
+		i, k, chains, clients, connection, channel, pth.Src.ChainID, pth.Src.PortID, pth.Dst.ChainID, pth.Dst.PortID)
+}
+
+type PathStatus struct {
+	Chains     bool `yaml:"chains" json:"chains"`
+	Clients    bool `yaml:"clients" json:"clients"`
+	Connection bool `yaml:"connection" json:"connection"`
+	Channel    bool `yaml:"channel" json:"channel"`
+}
+
+type PathWithStatus struct {
+	Path   *relayer.Path `yaml:"path" json:"chains"`
+	Status PathStatus    `yaml:"status" json:"status"`
+}
+
+func checkmark(status bool) string {
+	if status {
+		return "✔"
+	}
+	return "✘"
 }
 
 func pathsShowCmd() *cobra.Command {
@@ -162,18 +441,67 @@ func pathsShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			switch {
-			case yml && jsn:
+			if yml && jsn {
 				return fmt.Errorf("can't pass both --json and --yaml, must pick one")
+			}
+			// TODO: transition this to use relayer.QueryPathStatus
+			var (
+				chains     = false
+				clients    = false
+				connection = false
+				channel    = false
+				srch, dsth int64
+			)
+			src, dst := path.Src.ChainID, path.Dst.ChainID
+			ch, err := config.Chains.Gets(src, dst)
+			if err == nil {
+				srch, err = ch[src].QueryLatestHeight()
+				dsth, _ = ch[dst].QueryLatestHeight()
+				if err == nil {
+					chains = true
+					_ = ch[src].SetPath(path.Src)
+					_ = ch[dst].SetPath(path.Dst)
+				}
+			}
+
+			srcCs, err := ch[src].QueryClientState()
+			dstCs, _ := ch[dst].QueryClientState()
+			if err == nil && srcCs != nil && dstCs != nil {
+				clients = true
+			}
+
+			srcConn, err := ch[src].QueryConnection(srch)
+			dstConn, _ := ch[dst].QueryConnection(dsth)
+			if err == nil && srcConn.Connection.Connection.State.String() == "OPEN" && dstConn.Connection.Connection.State.String() == "OPEN" {
+				connection = true
+			}
+
+			srcChan, err := ch[src].QueryChannel(srch)
+			dstChan, _ := ch[dst].QueryChannel(dsth)
+			if err == nil && srcChan.Channel.Channel.State.String() == "OPEN" && dstChan.Channel.Channel.State.String() == "OPEN" {
+				channel = true
+			}
+
+			pathStatus := PathStatus{
+				Chains:     chains,
+				Clients:    clients,
+				Connection: connection,
+				Channel:    channel,
+			}
+			pathWithStatus := PathWithStatus{
+				Path:   path,
+				Status: pathStatus,
+			}
+			switch {
 			case yml:
-				out, err := yaml.Marshal(path)
+				out, err := yaml.Marshal(pathWithStatus)
 				if err != nil {
 					return err
 				}
 				fmt.Println(string(out))
 				return nil
 			case jsn:
-				out, err := json.Marshal(path)
+				out, err := json.Marshal(pathWithStatus)
 				if err != nil {
 					return err
 				}
@@ -191,11 +519,17 @@ func pathsShowCmd() *cobra.Command {
     ConnectionID: %s
     ChannelID:    %s
     PortID:       %s
+  STATUS:
+    Chains:       %s
+    Clients:      %s
+    Connection:   %s
+    Channel:      %s
 `, args[0], path.Strategy.Type, path.Src.ChainID, path.Src.ClientID, path.Src.ConnectionID, path.Src.ChannelID, path.Src.PortID,
-					path.Dst.ChainID, path.Dst.ClientID, path.Dst.ConnectionID, path.Dst.ChannelID, path.Dst.PortID)
-				return nil
+					path.Dst.ChainID, path.Dst.ClientID, path.Dst.ConnectionID, path.Dst.ChannelID, path.Dst.PortID,
+					checkmark(chains), checkmark(clients), checkmark(connection), checkmark(channel))
 			}
 
+			return nil
 		},
 	}
 	return yamlFlag(jsonFlag(cmd))
@@ -252,15 +586,11 @@ func fileInputPathAdd(file, name string) (cfg *Config, err error) {
 		return nil, err
 	}
 
-	paths, err := config.Paths.Add(name, p)
-	if err != nil {
+	if err = config.Paths.Add(name, p); err != nil {
 		return nil, err
 	}
 
-	cfg = config
-	cfg.Paths = paths
-
-	return cfg, nil
+	return config, nil
 }
 
 func userInputPathAdd(src, dst, name string) (*Config, error) {
@@ -366,27 +696,9 @@ func userInputPathAdd(src, dst, name string) (*Config, error) {
 		return nil, err
 	}
 
-	paths, err := config.Paths.Add(name, path)
-	if err != nil {
+	if err = config.Paths.Add(name, path); err != nil {
 		return nil, err
 	}
 
-	out := config
-	out.Paths = paths
-
-	return out, nil
-}
-
-// NOTE: This is insecure randomness using math/random. This should be migrated to
-// relayer.GenerateRandomString which is using the system PRNG, but that function
-// needs to be modified to output only lowercase letters to ensure that identifiers
-// pass validation once generated.
-func randString(length int) string {
-	rand.Seed(time.Now().UnixNano())
-	chars := []rune("abcdefghijklmnopqrstuvwxyz")
-	var b strings.Builder
-	for i := 0; i < length; i++ {
-		b.WriteRune(chars[rand.Intn(len(chars))])
-	}
-	return b.String()
+	return config, nil
 }

@@ -18,7 +18,7 @@ func chainsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "chains",
 		Aliases: []string{"ch"},
-		Short:   "commands to configure chains",
+		Short:   "manage chain configurations",
 	}
 
 	cmd.AddCommand(
@@ -36,9 +36,10 @@ func chainsCmd() *cobra.Command {
 
 func chainsAddrCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "addr [chain-id]",
-		Short: "Returns a chain's configured key's address",
-		Args:  cobra.ExactArgs(1),
+		Use:     "address [chain-id]",
+		Aliases: []string{"addr"},
+		Short:   "Returns a chain's configured key's address",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chain, err := config.Chains.Get(args[0])
 			if err != nil {
@@ -298,6 +299,15 @@ func filesAdd(dir string) (cfg *Config, err error) {
 		if err = json.Unmarshal(byt, c); err != nil {
 			fmt.Printf("failed to unmarshal file %s, skipping...\n", pth)
 			continue
+		}
+		if c.ChainID == "" && c.Key == "" && c.RPCAddr == "" {
+			p := &relayer.Path{}
+			if err = json.Unmarshal(byt, p); err == nil {
+				fmt.Printf("%s is a path file, try adding it with 'rly pth add -f %s'...\n", f.Name(), pth)
+				continue
+			}
+			fmt.Printf("%s did not contain valid chain config, skipping...\n", pth)
+
 		}
 		if err = cfg.AddChain(c); err != nil {
 			fmt.Printf("%s: %s\n", pth, err.Error())

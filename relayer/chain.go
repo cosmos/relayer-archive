@@ -2,23 +2,27 @@ package relayer
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"time"
 
 	sdkCtx "github.com/cosmos/cosmos-sdk/client/context"
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	aminocodec "github.com/cosmos/cosmos-sdk/codec"
 	codecstd "github.com/cosmos/cosmos-sdk/codec/std"
-	"github.com/cosmos/cosmos-sdk/crypto/keys"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	keys "github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/cosmos/go-bip39"
 	"github.com/tendermint/tendermint/libs/log"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
+	rpchttp "github.com/tendermint/tendermint/rpc/client/http"
 	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 	libclient "github.com/tendermint/tendermint/rpc/lib/client"
 )
@@ -37,12 +41,12 @@ type Chain struct {
 	TrustingPeriod string  `yaml:"trusting-period" json:"trusting-period"`
 
 	// TODO: make these private
-	HomePath string            `yaml:"-" json:"-"`
-	PathEnd  *PathEnd          `yaml:"-" json:"-"`
-	Keybase  keys.Keybase      `yaml:"-" json:"-"`
-	Client   rpcclient.Client  `yaml:"-" json:"-"`
-	Cdc      *codecstd.Codec   `yaml:"-" json:"-"`
-	Amino    *aminocodec.Codec `yaml:"-" json:"-"`
+	HomePath string                `yaml:"-" json:"-"`
+	PathEnd  *PathEnd              `yaml:"-" json:"-"`
+	Keybase  keys.Keyring          `yaml:"-" json:"-"`
+	Client   rpcclient.Client      `yaml:"-" json:"-"`
+	Cdc      *contextualStdCodec   `yaml:"-" json:"-"`
+	Amino    *contextualAminoCodec `yaml:"-" json:"-"`
 
 	address sdk.AccAddress
 	logger  log.Logger
@@ -53,50 +57,123 @@ type Chain struct {
 	faucetAddrs map[string]time.Time
 }
 
+// ListenRPCEmitJSON listens for tx and block events from a chain and outputs them as JSON to stdout
+func (src *Chain) ListenRPCEmitJSON(tx, block, data bool) func() {
+	doneChan := make(chan struct{})
+	go src.listenLoop(doneChan, tx, block, data)
+	return func() { doneChan <- struct{}{} }
+}
+
+func (src *Chain) listenLoop(doneChan chan struct{}, tx, block, data bool) {
+	// Subscribe to source chain
+	if err := src.Start(); err != nil {
+		src.Error(err)
+		return
+	}
+
+	srcTxEvents, srcTxCancel, err := src.Subscribe(txEvents)
+	if err != nil {
+		src.Error(err)
+		return
+	}
+	defer srcTxCancel()
+
+	srcBlockEvents, srcBlockCancel, err := src.Subscribe(blEvents)
+	if err != nil {
+		src.Error(err)
+		return
+	}
+	defer srcBlockCancel()
+
+	// Listen to channels and take appropriate action
+	var byt []byte
+	var mar interface{}
+	for {
+		select {
+		case srcMsg := <-srcTxEvents:
+			if tx {
+				continue
+			} else if data {
+				mar = srcMsg
+			} else {
+				mar = srcMsg.Events
+			}
+			if byt, err = json.Marshal(mar); err != nil {
+				src.Error(err)
+			}
+			fmt.Println(string(byt))
+		case srcMsg := <-srcBlockEvents:
+			if block {
+				continue
+			} else if data {
+				mar = srcMsg
+			} else {
+				mar = srcMsg.Events
+			}
+			if byt, err = json.Marshal(mar); err != nil {
+				src.Error(err)
+			}
+			fmt.Println(string(byt))
+		case <-doneChan:
+			close(doneChan)
+			return
+		}
+	}
+}
+
 // Init initializes the pieces of a chain that aren't set when it parses a config
 // NOTE: All validation of the chain should happen here.
-func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) (*Chain, error) {
-	keybase, err := keys.NewKeyring(src.ChainID, "test", keysDir(homePath), nil)
+func (src *Chain) Init(homePath string, cdc *codecstd.Codec, amino *aminocodec.Codec, timeout time.Duration, debug bool) error {
+	keybase, err := keys.New(src.ChainID, "test", keysDir(homePath, src.ChainID), nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	client, err := newRPCClient(src.RPCAddr, timeout)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = sdk.ParseDecCoins(src.GasPrices)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, err = time.ParseDuration(src.TrustingPeriod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse trusting period (%s) for chain %s", src.TrustingPeriod, src.ChainID)
+		return fmt.Errorf("failed to parse trusting period (%s) for chain %s", src.TrustingPeriod, src.ChainID)
 	}
 
-	return &Chain{
-		Key:            src.Key,
-		ChainID:        src.ChainID,
-		RPCAddr:        src.RPCAddr,
-		AccountPrefix:  src.AccountPrefix,
-		Gas:            src.Gas,
-		GasAdjustment:  src.GasAdjustment,
-		GasPrices:      src.GasPrices,
-		DefaultDenom:   src.DefaultDenom,
-		Memo:           src.Memo,
-		TrustingPeriod: src.TrustingPeriod,
-		Keybase:        keybase,
-		Client:         client,
-		Cdc:            cdc,
-		Amino:          amino,
-		HomePath:       homePath,
-		logger:         log.NewTMLogger(log.NewSyncWriter(os.Stdout)),
-		timeout:        timeout,
-		debug:          debug,
-		faucetAddrs:    make(map[string]time.Time),
-	}, nil
+	src.Keybase = keybase
+	src.Client = client
+	src.Cdc = newContextualStdCodec(cdc, src.UseSDKContext)
+	src.Amino = newContextualAminoCodec(amino, src.UseSDKContext)
+	RegisterCodec(amino)
+	src.HomePath = homePath
+	src.logger = defaultChainLogger()
+	src.timeout = timeout
+	src.debug = debug
+	src.faucetAddrs = make(map[string]time.Time)
+	return nil
+}
+
+func defaultChainLogger() log.Logger {
+	return log.NewTMLogger(log.NewSyncWriter(os.Stdout))
+}
+
+// KeyExists returns true if there is a specified key in chain's keybase
+func (src *Chain) KeyExists(name string) bool {
+	keyInfos, err := src.Keybase.List()
+	if err != nil {
+		return false
+	}
+
+	for _, k := range keyInfos {
+		if k.GetName() == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (src *Chain) getGasPrices() sdk.DecCoins {
@@ -110,7 +187,7 @@ func (src *Chain) GetTrustingPeriod() time.Duration {
 	return tp
 }
 
-func newRPCClient(addr string, timeout time.Duration) (*rpcclient.HTTP, error) {
+func newRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
 	httpClient, err := libclient.DefaultHTTPClient(addr)
 	if err != nil {
 		return nil, err
@@ -118,7 +195,7 @@ func newRPCClient(addr string, timeout time.Duration) (*rpcclient.HTTP, error) {
 
 	// TODO: Replace with the global timeout value?
 	httpClient.Timeout = timeout
-	rpcClient, err := rpcclient.NewHTTPWithClient(addr, "/websocket", httpClient)
+	rpcClient, err := rpchttp.NewWithClient(addr, "/websocket", httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -143,16 +220,14 @@ func (src *Chain) SendMsgs(datagrams []sdk.Msg) (res sdk.TxResponse, err error) 
 // BuildAndSignTx takes messages and builds, signs and marshals a sdk.Tx to prepare it for broadcast
 func (src *Chain) BuildAndSignTx(datagram []sdk.Msg) ([]byte, error) {
 	// Fetch account and sequence numbers for the account
-	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
-
 	acc, err := auth.NewAccountRetriever(src.Cdc, src).GetAccount(src.MustGetAddress())
 	if err != nil {
 		return nil, err
 	}
 
+	defer src.UseSDKContext()()
 	return auth.NewTxBuilder(
-		auth.DefaultTxEncoder(src.Amino), acc.GetAccountNumber(),
+		auth.DefaultTxEncoder(src.Amino.Codec), acc.GetAccountNumber(),
 		acc.GetSequence(), src.Gas, src.GasAdjustment, false, src.ChainID,
 		src.Memo, sdk.NewCoins(), src.getGasPrices()).WithKeybase(src.Keybase).
 		BuildAndSign(src.Key, ckeys.DefaultKeyPass, datagram)
@@ -179,12 +254,13 @@ func (src *Chain) Error(err error) {
 	src.logger.Error(fmt.Sprintf("%s: err(%s)", src.ChainID, err.Error()))
 }
 
+// Start the client service
+func (src *Chain) Start() error {
+	return src.Client.Start()
+}
+
 // Subscribe returns channel of events given a query
 func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.CancelFunc, error) {
-	if err := src.Client.Start(); err != nil {
-		return nil, nil, err
-	}
-
 	suffix, err := GenerateRandomString(8)
 	if err != nil {
 		return nil, nil, err
@@ -195,34 +271,9 @@ func (src *Chain) Subscribe(query string) (<-chan ctypes.ResultEvent, context.Ca
 	return eventChan, cancel, err
 }
 
-// GenerateRandomBytes returns securely generated random bytes.
-// It will return an error if the system's secure random
-// number generator fails to function correctly, in which
-// case the caller should not continue.
-func GenerateRandomBytes(n int) ([]byte, error) {
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	// Note that err == nil only if we read len(b) bytes.
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
-}
-
-// GenerateRandomString returns a URL-safe, base64 encoded
-// securely generated random string.
-// It will return an error if the system's secure random
-// number generator fails to function correctly, in which
-// case the caller should not continue.
-func GenerateRandomString(s int) (string, error) {
-	b, err := GenerateRandomBytes(s)
-	return base64.URLEncoding.EncodeToString(b), err
-}
-
 // KeysDir returns the path to the keys for this chain
-func keysDir(home string) string {
-	return path.Join(home, "keys")
+func keysDir(home, chainID string) string {
+	return path.Join(home, "keys", chainID)
 }
 
 func liteDir(home string) string {
@@ -235,17 +286,14 @@ func (src *Chain) GetAddress() (sdk.AccAddress, error) {
 		return src.address, nil
 	}
 
-	// Set sdk config to use custom Bech32 account prefix
-	sdkConf := sdk.GetConfig()
-	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
-
 	// Signing key for src chain
-	srcAddr, err := src.Keybase.Get(src.Key)
+	srcAddr, err := src.Keybase.Key(src.Key)
 	if err != nil {
 		return nil, err
 	}
+
 	src.address = srcAddr.GetAddress()
-	return srcAddr.GetAddress(), nil
+	return src.address, nil
 }
 
 // MustGetAddress used for brevity
@@ -257,8 +305,29 @@ func (src *Chain) MustGetAddress() sdk.AccAddress {
 	return srcAddr
 }
 
+var sdkContextMutex sync.Mutex
+
+// UseSDKContext uses a custom Bech32 account prefix and returns a restore func
+func (src *Chain) UseSDKContext() func() {
+	// Ensure we're the only one using the global context.
+	sdkContextMutex.Lock()
+	sdkConf := sdk.GetConfig()
+	account := sdkConf.GetBech32AccountAddrPrefix()
+	pubaccount := sdkConf.GetBech32AccountPubPrefix()
+
+	// Mutate the sdkConf
+	sdkConf.SetBech32PrefixForAccount(src.AccountPrefix, src.AccountPrefix+"pub")
+
+	// Return a function that resets and unlocks.
+	return func() {
+		defer sdkContextMutex.Unlock()
+		sdkConf.SetBech32PrefixForAccount(account, pubaccount)
+	}
+}
+
 func (src *Chain) String() string {
-	return src.ChainID
+	out, _ := json.Marshal(src)
+	return string(out)
 }
 
 // Update returns a new chain with updated values
@@ -270,7 +339,7 @@ func (src *Chain) Update(key, value string) (out *Chain, err error) {
 	case "chain-id":
 		out.ChainID = value
 	case "rpc-addr":
-		if _, err = rpcclient.NewHTTP(value, "/websocket"); err != nil {
+		if _, err = rpchttp.New(value, "/websocket"); err != nil {
 			return
 		}
 		out.RPCAddr = value
@@ -365,6 +434,15 @@ func (c Chains) Get(chainID string) (*Chain, error) {
 	return &Chain{}, fmt.Errorf("chain with ID %s is not configured", chainID)
 }
 
+// MustGet returns the chain and panics on any error
+func (c Chains) MustGet(chainID string) *Chain {
+	out, err := c.Get(chainID)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 // Gets returns a map chainIDs to their chains
 func (c Chains) Gets(chainIDs ...string) (map[string]*Chain, error) {
 	out := make(map[string]*Chain)
@@ -376,4 +454,56 @@ func (c Chains) Gets(chainIDs ...string) (map[string]*Chain, error) {
 		out[cid] = chain
 	}
 	return out, nil
+}
+
+// GetRPCPort returns the port configured for the chain
+func (src *Chain) GetRPCPort() string {
+	u, _ := url.Parse(src.RPCAddr)
+	return u.Port()
+}
+
+// CreateTestKey creates a key for test chain
+func (src *Chain) CreateTestKey() error {
+	if src.KeyExists(src.Key) {
+		return fmt.Errorf("key %s exists for chain %s", src.ChainID, src.Key)
+	}
+
+	mnemonic, err := CreateMnemonic()
+	if err != nil {
+		return err
+	}
+
+	_, err = src.Keybase.NewAccount(src.Key, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
+	return err
+}
+
+// CreateMnemonic creates a new mnemonic
+func CreateMnemonic() (string, error) {
+	entropySeed, err := bip39.NewEntropy(256)
+	if err != nil {
+		return "", err
+	}
+	mnemonic, err := bip39.NewMnemonic(entropySeed)
+	if err != nil {
+		return "", err
+	}
+	return mnemonic, nil
+}
+
+// GetTimeout returns the chain's configured timeout
+func (src *Chain) GetTimeout() time.Duration {
+	return src.timeout
+}
+
+// StatusErr returns err unless the chain is ready to go
+func (src *Chain) StatusErr() error {
+	stat, err := src.Client.Status()
+	switch {
+	case err != nil:
+		return err
+	case stat.SyncInfo.LatestBlockHeight < 3:
+		return fmt.Errorf("haven't produced any blocks yet")
+	default:
+		return nil
+	}
 }

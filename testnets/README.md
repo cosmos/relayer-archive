@@ -2,6 +2,33 @@
 
 These are instructions on how to setup a node to run a basic IBC relayer testnet. Currently, coordination is happening in the [`ibc-testnet-alpha` group on telegram](https://t.me/joinchat/IYdbxRRFYIkj9FR99X3-BA).
 
+### *20 April 2020 17:00 PST* - `relayer-alpha-2` testnet
+
+This is the second `relayer` testnet! I will be copying JSON files from the first testnet to the new folder as well as merging all the backlogged pull requests. Please make sure you are using the following version of `gaia` to ensure compatability.
+
+- Gaia Version Info
+
+```bash
+$ gaiad version --long
+name: gaia
+server_name: gaiad
+client_name: gaiacli
+version: 0.0.0-180-g50be36d
+commit: 50be36de941b9410a4b06ec9ce4288b1529c4bd4
+build_tags: netgo,ledger
+go: go version go1.14 darwin/amd64
+```
+
+- Relayer Version Info
+
+```bash
+$ rly version
+version: 0.3.0
+commit: 781026cf46c6d144ab7fcd02d92817cc3d524903
+cosmos-sdk: v0.34.4-0.20200423152229-f1fdde5d1b18
+go: go1.14 darwin/amd64
+```
+
 ### *19 March 2020 17:00 PST* - `relayer-alpha` testnet
 
 This is the first `relayer` testnet! Please submit your JSON files for this testnet to `./testnets/relayer-alpha/{{chain_id}}.json`.
@@ -30,7 +57,7 @@ echo 'export GOPATH=$HOME/go' >> ~/.profile
 echo 'export GOBIN=$GOPATH/bin' >> ~/.profile
 echo 'export PATH=$PATH:/usr/local/go/bin:$GOBIN' >> ~/.profile
 echo "export GAIA=\$GOPATH/src/github.com/cosmos/gaia" >> ~/.profile
-echo "export RELAYER=\$GOPATH/src/github.com/cosmos/relayer" >> ~/.profile
+echo "export RELAYER=\$GOPATH/src/github.com/iqlusioninc/relayer" >> ~/.profile
 source ~/.profile
 
 # Set these variables to different values that are specific to your chain
@@ -39,15 +66,17 @@ export DENOM=pylon
 export CHAINID=pylonchain
 export DOMAIN=shitcoincasinos.com
 export RLYKEY=faucet
+export GAIASHA=50be36d
+export ACCOUNT_PREFIX=cosmos
 
 # Start by downloading and installing both gaia and the relayer
-mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout ibc-alpha && make install
-mkdir -p $(dirname $RELAYER) && git clone https://github.com/cosmos/relayer $RELAYER && cd $RELAYER && make install
+mkdir -p $(dirname $GAIA) && git clone https://github.com/cosmos/gaia $GAIA && cd $GAIA && git checkout $GAIASHA && make install
+mkdir -p $(dirname $RELAYER) && git clone https://github.com/iqlusioninc/relayer $RELAYER && cd $RELAYER && make install
 
 # Now its time to configure both the relayer and gaia, start with the relayer
 cd
 rly config init
-echo "{\"key\":\"$RLYKEY\",\"chain-id\":\"$CHAINID\",\"rpc-addr\":\"http://$DOMAIN:26657\",\"account-prefix\":\"cosmos\",\"gas\":200000,\"gas-prices\":\"0.025$DENOM\",\"default-denom\":\"$DENOM\",\"trusting-period\":\"330h\"}" > $CHAINID.json
+echo "{\"key\":\"$RLYKEY\",\"chain-id\":\"$CHAINID\",\"rpc-addr\":\"http://$DOMAIN:26657\",\"account-prefix\":\"$ACCOUNT_PREFIX\",\"gas\":200000,\"gas-prices\":\"0.025$DENOM\",\"default-denom\":\"$DENOM\",\"trusting-period\":\"330h\"}" > $CHAINID.json
 # NOTE: you will want to save the content from this JSON file
 rly chains add -f $CHAINID.json
 rly keys add $CHAINID $RLYKEY
@@ -67,8 +96,8 @@ gaiad gentx --name validator --amount 90000000000$DENOM
 gaiad collect-gentxs
 
 # Setup the service definitions
-rly svc gaia $USER $HOME > gaiad.service
-rly svc faucet $USER $HOME $CHAINID $RLYKEY 100000$DENOM > faucet.service
+rly dev gaia $USER $HOME > gaiad.service
+rly dev faucet $USER $HOME $CHAINID $RLYKEY 100000$DENOM > faucet.service
 sudo mv gaiad.service /etc/systemd/system/gaiad.service
 sudo mv faucet.service /etc/systemd/system/faucet.service
 sudo systemctl daemon-reload
@@ -79,13 +108,14 @@ sudo systemctl start faucet
 # Be sure you have the text from ~/$CHAINID.json for the next step
 ```
 
-### Local Setup
-Once you have your server 
+### Relayer Setup
+
+Once you have your server (you could deploy the relayer on a different machine as above server)
 
 ```bash
 # install the relayer
-export RELAYER=$GOPATH/src/github.com/cosmos/relayer
-mkdir -p $(dirname $RELAYER) && git clone git@github.com:cosmos/relayer $RELAYER && cd $RELAYER
+export RELAYER=$GOPATH/src/github.com/iqlusioninc/relayer
+mkdir -p $(dirname $RELAYER) && git clone git@github.com:iqlusioninc/relayer $RELAYER && cd $RELAYER
 make install
 
 # then to configure your local relayer to talk to your remote chain
@@ -108,6 +138,8 @@ rly tst request {{chain_id}} testkey
 # you should see a balance for the rly key now
 rly q bal {{chain_id}}
 ```
+Note that most of these instructions would also work directly on the 
+server on which you deployed your gaia node on (not recommended though).
 
 ### Submit your {{chain_id}}.json to the relayer repo
 
@@ -120,11 +152,13 @@ Once you have your chain configured on your relayer, follow these steps to send 
 
 ```bash
 # first ensure the chain is configured locally
+cd $RELAYER
+
 # do it either individually...
-rly ch a -f testnets/relayer-alpha/pylonchain.json
+rly ch a -f testnets/relayer-alpha-2/pylonchain.json
 
 # or add all the chain configurations for the testnet at once...
-rly chains add-dir tesetnets/relayer-alpha/
+rly chains add-dir testnets/relayer-alpha-2/
 
 # ensure the lite clients are created locally...
 rly lite init {{src_chain_id}} -f 
@@ -135,6 +169,7 @@ rly keys add {{src_chain_id}}
 rly k a {{dst_chain_id}}
 
 # ensure you have funds on both chains...
+# this adds tokens to your addresses from each chain's faucet
 rly testnets request {{src_chain_id}}
 rly tst req {{dst_chain_id}}
 
@@ -142,10 +177,17 @@ rly tst req {{dst_chain_id}}
 rly paths add {{src_chain}} {{dst_chain_id}} {{path_name}}
 
 # or generate one...
-rly pth gen {{src_chain_id}} {{dst_chain_id}} {{path_name}}
+rly pth gen {{src_chain_id}} transfer {{dst_chain_id}} transfer {{path_name}}
+
+# NOTE: path_name can be any string, but one convention is srcchain_dstchain
+
+# or find all the existing paths...
+# NOTE: this command is still under development, but will output
+#  a number of existing paths between chains
+rly pth find
 
 # ensure that the path exists
-rly tx link {{src_chain_id}} {{dst_chain_id}}
+rly tx link {{path_name}}
 
 # then send some funds back and forth!
 rly q bal {{src_chain_id}}
@@ -153,7 +195,7 @@ rly q bal {{dst_chain_id}}
 rly tx transfer {{src_chain_id}} {{dst_chain_id}} {{amount}} true $(rly ch addr {{dst_chain_id}})
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
-rly tx xfer {{ds_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
+rly tx xfer {{dst_chain_id}} {{src_chain_id}} {{amount}} false $(rly ch addr {{src_chain_id}})
 rly q bal {{src_chain_id}}
 rly q bal {{dst_chain_id}}
 ```

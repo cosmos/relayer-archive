@@ -50,7 +50,7 @@ func (c *Chain) QueryBalance(keyName string) (sdk.Coins, error) {
 	if keyName == "" {
 		addr = c.MustGetAddress()
 	} else {
-		info, err := c.Keybase.Get(keyName)
+		info, err := c.Keybase.Key(keyName)
 		if err != nil {
 			return nil, err
 		}
@@ -129,7 +129,7 @@ func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) 
 	req := abci.RequestQuery{
 		Path:   "store/ibc/key",
 		Height: int64(srcHeight),
-		Data:   ibctypes.KeyConsensusState(c.PathEnd.ClientID, uint64(srcClientConsHeight)),
+		Data:   prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyConsensusState(uint64(srcClientConsHeight))),
 		Prove:  true,
 	}
 
@@ -142,8 +142,10 @@ func (c *Chain) QueryClientConsensusState(srcHeight, srcClientConsHeight int64) 
 	}
 
 	var cs exported.ConsensusState
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
-		return conStateRes, qClntConsStateErr(err)
+	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
+			return conStateRes, qClntConsStateErr(err)
+		}
 	}
 
 	return clientTypes.NewConsensusStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
@@ -197,15 +199,15 @@ func QueryClientConsensusStatePair(src, dst *Chain, srcH, dstH, srcClientConsH, 
 func qClntConsStateErr(err error) error { return fmt.Errorf("query client cons state failed: %w", err) }
 
 // QueryClientState retrevies the latest consensus state for a client in state at a given height
-func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
-	var conStateRes clientTypes.StateResponse
+func (c *Chain) QueryClientState() (*clientTypes.StateResponse, error) {
+	var conStateRes *clientTypes.StateResponse
 	if !c.PathSet() {
-		return conStateRes, c.ErrPathNotSet()
+		return nil, c.ErrPathNotSet()
 	}
 
 	req := abci.RequestQuery{
 		Path:  "store/ibc/key",
-		Data:  ibctypes.KeyClientState(c.PathEnd.ClientID),
+		Data:  prefixClientKey(c.PathEnd.ClientID, ibctypes.KeyClientState()),
 		Prove: true,
 	}
 
@@ -214,27 +216,33 @@ func (c *Chain) QueryClientState() (clientTypes.StateResponse, error) {
 		return conStateRes, qClntStateErr(err)
 	} else if res.Value == nil {
 		// TODO: Better way to handle this?
-		return clientTypes.StateResponse{}, nil
+		return nil, nil
 	}
 
 	var cs exported.ClientState
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
-		return conStateRes, qClntStateErr(err)
+
+	// If this decoding fails, try with UnmarshalBinaryLengthPrefixed this changed
+	// reciently and will help support older versions.
+	if err := c.Amino.UnmarshalBinaryBare(res.Value, &cs); err != nil {
+		if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &cs); err != nil {
+			return nil, qClntStateErr(err)
+		}
 	}
 
-	return clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height), nil
+	csr := clientTypes.NewClientStateResponse(c.PathEnd.ClientID, cs, res.Proof, res.Height)
+	return &csr, nil
 }
 
 type cstates struct {
 	sync.Mutex
-	Map  map[string]clientTypes.StateResponse
+	Map  map[string]*clientTypes.StateResponse
 	Errs errs
 }
 
 // QueryClientStatePair returns a pair of connection responses
-func QueryClientStatePair(src, dst *Chain) (map[string]clientTypes.StateResponse, error) {
+func QueryClientStatePair(src, dst *Chain) (map[string]*clientTypes.StateResponse, error) {
 	hs := &cstates{
-		Map:  make(map[string]clientTypes.StateResponse),
+		Map:  make(map[string]*clientTypes.StateResponse),
 		Errs: []error{},
 	}
 
@@ -293,7 +301,7 @@ func qClntsErr(err error) error { return fmt.Errorf("query clients failed: %w", 
 //////////////////////////////
 
 // QueryConnections gets any connections on a chain
-func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.ConnectionEnd, err error) {
+func (c *Chain) QueryConnections(page, limit int) (conns []connTypes.IdentifiedConnectionEnd, err error) {
 	var bz []byte
 	if bz, err = c.Cdc.MarshalJSON(connTypes.NewQueryAllConnectionsParams(page, limit)); err != nil {
 		return nil, qConnsErr(err)
@@ -331,8 +339,10 @@ func (c *Chain) QueryConnectionsUsingClient(height int64) (clientConns connTypes
 	}
 
 	var paths []string
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &paths); err != nil {
-		return clientConns, qConnsUsingClntsErr(err)
+	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &paths); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &paths); err != nil {
+			return clientConns, qConnsUsingClntsErr(err)
+		}
 	}
 
 	return connTypes.NewClientConnectionsResponse(c.PathEnd.ClientID, paths, res.Proof, res.Height), nil
@@ -364,8 +374,10 @@ func (c *Chain) QueryConnection(height int64) (connTypes.ConnectionResponse, err
 	}
 
 	var connection connTypes.ConnectionEnd
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &connection); err != nil {
-		return connTypes.ConnectionResponse{}, qConnErr(err)
+	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &connection); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &connection); err != nil {
+			return connTypes.ConnectionResponse{}, qConnErr(err)
+		}
 	}
 
 	return connTypes.NewConnectionResponse(c.PathEnd.ConnectionID, connection, res.Proof, res.Height), nil
@@ -422,11 +434,35 @@ func QueryConnectionPair(src, dst *Chain, srcH, dstH int64) (map[string]connType
 
 func qConnErr(err error) error { return fmt.Errorf("query connection failed: %w", err) }
 
-var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.ConnectionEnd{State: connState.UNINITIALIZED}}
+var emptyConn = connTypes.ConnectionEnd{State: connState.UNINITIALIZED}
+var emptyConnRes = connTypes.ConnectionResponse{Connection: connTypes.IdentifiedConnectionEnd{Connection: emptyConn, Identifier: ""}}
 
 //////////////////////////////
 //    ICS 04 -> CHANNEL     //
 //////////////////////////////
+
+// QueryConnectionChannels queries the channels associated with a connection
+func (c *Chain) QueryConnectionChannels(connectionID string, page, limit int) ([]chanTypes.IdentifiedChannel, error) {
+	var (
+		bz       []byte
+		err      error
+		channels []chanTypes.IdentifiedChannel
+	)
+
+	if bz, err = c.Cdc.MarshalJSON(chanTypes.NewQueryConnectionChannelsParams(connectionID, page, limit)); err != nil {
+		return nil, qChansErr(err)
+	}
+
+	if bz, _, err = c.QueryWithData(ibcQuerierRoute(chanTypes.QuerierRoute, chanTypes.QueryConnectionChannels), bz); err != nil {
+		return nil, qChansErr(err)
+	}
+
+	if err = c.Cdc.UnmarshalJSON(bz, &channels); err != nil {
+		return nil, qChansErr(err)
+	}
+
+	return channels, nil
+}
 
 // QueryChannel returns the channel associated with a channelID
 func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, err error) {
@@ -446,12 +482,14 @@ func (c *Chain) QueryChannel(height int64) (chanRes chanTypes.ChannelResponse, e
 		return chanRes, qChanErr(err)
 	} else if res.Value == nil {
 		// NOTE: This is returned so that the switch statement in ChannelStep works properly
-		return emptyChanRes, nil
+		return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, chanTypes.Channel{State: chanState.UNINITIALIZED}, nil, 0), nil
 	}
 
 	var channel chanTypes.Channel
-	if err := c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
-		return chanRes, qChanErr(err)
+	if err = c.Amino.UnmarshalBinaryLengthPrefixed(res.Value, &channel); err != nil {
+		if err = c.Amino.UnmarshalBinaryBare(res.Value, &channel); err != nil {
+			return chanRes, qChanErr(err)
+		}
 	}
 
 	return chanTypes.NewChannelResponse(c.PathEnd.PortID, c.PathEnd.ChannelID, channel, res.Proof, res.Height), nil
@@ -498,14 +536,12 @@ func QueryChannelPair(src, dst *Chain, srcH, dstH int64) (map[string]chanTypes.C
 
 func qChanErr(err error) error { return fmt.Errorf("query channel failed: %w", err) }
 
-var emptyChanRes = chanTypes.ChannelResponse{Channel: chanTypes.Channel{State: chanState.UNINITIALIZED}}
-
 // QueryChannels returns all the channels that are registered on a chain
-func (c *Chain) QueryChannels(page, limit int) ([]chanTypes.Channel, error) {
+func (c *Chain) QueryChannels(page, limit int) ([]chanTypes.IdentifiedChannel, error) {
 	var (
 		bz       []byte
 		err      error
-		channels []chanTypes.Channel
+		channels []chanTypes.IdentifiedChannel
 	)
 
 	if bz, err = c.Cdc.MarshalJSON(chanTypes.NewQueryAllChannelsParams(page, limit)); err != nil {
@@ -526,21 +562,22 @@ func (c *Chain) QueryChannels(page, limit int) ([]chanTypes.Channel, error) {
 func qChansErr(err error) error { return fmt.Errorf("query channels failed: %w", err) }
 
 // WaitForNBlocks blocks until the next block on a given chain
-func (c *Chain) WaitForNBlocks(n int) error {
+func (c *Chain) WaitForNBlocks(n int64) error {
 	var initial int64
 	h, err := c.Client.Status()
 	if err != nil {
 		return err
 	}
-	if !h.SyncInfo.CatchingUp {
-		initial = h.SyncInfo.LatestBlockHeight
+	if h.SyncInfo.CatchingUp {
+		return fmt.Errorf("chain catching up")
 	}
+	initial = h.SyncInfo.LatestBlockHeight
 	for {
 		h, err = c.Client.Status()
 		if err != nil {
 			return err
 		}
-		if h.SyncInfo.LatestBlockHeight > initial {
+		if h.SyncInfo.LatestBlockHeight > initial+n {
 			return nil
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -594,8 +631,8 @@ type SeqPair struct {
 
 // RelaySequences represents the unrelayed sequence numbers on src and dst
 type RelaySequences struct {
-	Src []uint64 `json:"src" yaml:"src"`
-	Dst []uint64 `json:"dst" yaml:"dst"`
+	Src []uint64 `json:"src,omitempty" yaml:"src,omitempty"`
+	Dst []uint64 `json:"dst,omitempty" yaml:"dst,omitempty"`
 }
 
 // ToRelay represents an array of sequence numbers on each chain that need to be relayed
@@ -619,8 +656,8 @@ func newRlySeq(start, end uint64) []uint64 {
 }
 
 // UnrelayedSequences returns the unrelayed sequence numbers between two chains
-func UnrelayedSequences(src, dst *Chain, srcH, dstH int64) (*RelaySequences, error) {
-	seqP, err := QueryNextSeqPairs(src, dst, srcH, dstH)
+func UnrelayedSequences(src, dst *Chain, sh *SyncHeaders) (*RelaySequences, error) {
+	seqP, err := QueryNextSeqPairs(src, dst, sh)
 	if err != nil {
 		return nil, err
 	}
@@ -628,14 +665,14 @@ func UnrelayedSequences(src, dst *Chain, srcH, dstH int64) (*RelaySequences, err
 }
 
 // QueryNextSeqPairs returns a pair of chain's next sequences for the configured channel
-func QueryNextSeqPairs(src, dst *Chain, srcH, dstH int64) (*SeqPairs, error) {
+func QueryNextSeqPairs(src, dst *Chain, sh *SyncHeaders) (*SeqPairs, error) {
 	sps := &SeqPairs{Src: &SeqPair{}, Dst: &SeqPair{}, errs: errs{}}
 	var wg sync.WaitGroup
 	wg.Add(4)
-	go src.queryNextSendWG(sps, srcH, &wg, true)
-	go src.queryNextRecvWG(sps, srcH, &wg, true)
-	go dst.queryNextSendWG(sps, dstH, &wg, false)
-	go dst.queryNextRecvWG(sps, dstH, &wg, false)
+	go src.queryNextSendWG(sps, int64(sh.GetHeight(src.ChainID)), &wg, true)
+	go src.queryNextRecvWG(sps, int64(sh.GetHeight(src.ChainID)), &wg, true)
+	go dst.queryNextSendWG(sps, int64(sh.GetHeight(dst.ChainID)), &wg, false)
+	go dst.queryNextRecvWG(sps, int64(sh.GetHeight(dst.ChainID)), &wg, false)
 	wg.Wait()
 	return sps, sps.errs.err()
 }
@@ -776,6 +813,139 @@ func (c *Chain) QueryPacketAck(height, seq int64) (comRes CommitmentResponse, er
 
 func qPacketAckErr(err error) error {
 	return fmt.Errorf("query packet acknowledgement failed: %w", err)
+}
+
+// PathStatus returns the status of a given path
+type PathStatus struct {
+	Chains       map[string]*ChainStatus `json:"chains" yaml:"chains"`
+	UnrelayedSeq *RelaySequences         `json:"unrelayed-seq" yaml:"unrelayed-seq"`
+	src          string
+	dst          string
+}
+
+// ChainStatus is for printing a chain's link status
+type ChainStatus struct {
+	Reachable  bool              `json:"reachable" yaml:"reachable"`
+	Height     int64             `json:"height" yaml:"height"`
+	Client     *ClientStatus     `json:"client" yaml:"client"`
+	Connection *ConnectionStatus `json:"connection" yaml:"connection"`
+	Channel    *ChannelStatus    `json:"channel" yaml:"channel"`
+}
+
+// ClientStatus is for printing client status
+type ClientStatus struct {
+	ID     string `json:"id,omitempty" yaml:"id,omitempty"`
+	Height uint64 `json:"height,omitempty" yaml:"height,omitempty"`
+}
+
+// ConnectionStatus is for printing connection status
+type ConnectionStatus struct {
+	ID    string `json:"id,omitempty" yaml:"id,omitempty"`
+	State string `json:"state,omitempty" yaml:"state,omitempty"`
+}
+
+// ChannelStatus is for printing channel status
+type ChannelStatus struct {
+	ID    string `json:"id,omitempty" yaml:"id,omitempty"`
+	Port  string `json:"port,omitempty" yaml:"port,omitempty"`
+	State string `json:"state,omitempty" yaml:"state,omitempty"`
+	Order string `json:"order,omitempty" yaml:"order,omitempty"`
+}
+
+// QueryPathStatus takes both ends of a path and queries all the data about the link
+func QueryPathStatus(src, dst *Chain, path *Path) (stat *PathStatus, err error) {
+	stat = &PathStatus{
+		Chains: map[string]*ChainStatus{
+			src.ChainID: {
+				Reachable:  false,
+				Height:     -1,
+				Client:     &ClientStatus{},
+				Connection: &ConnectionStatus{},
+				Channel:    &ChannelStatus{},
+			},
+			dst.ChainID: {
+				Reachable:  false,
+				Height:     -1,
+				Client:     &ClientStatus{},
+				Connection: &ConnectionStatus{},
+				Channel:    &ChannelStatus{},
+			},
+		},
+		UnrelayedSeq: &RelaySequences{},
+		src:          src.ChainID,
+		dst:          dst.ChainID,
+	}
+
+	if err = src.SetPath(path.Src); err != nil {
+		return
+	}
+	if err = dst.SetPath(path.Dst); err != nil {
+		return
+	}
+
+	sh, err := NewSyncHeaders(src, dst)
+	if err != nil {
+		return
+	}
+
+	stat.Chains[src.ChainID].Height = int64(sh.GetHeight(src.ChainID))
+	stat.Chains[src.ChainID].Reachable = true
+
+	stat.Chains[dst.ChainID].Height = int64(sh.GetHeight(dst.ChainID))
+	stat.Chains[dst.ChainID].Reachable = true
+
+	srcCs, err := src.QueryClientState()
+	if err != nil {
+		return
+	}
+	stat.Chains[src.ChainID].Client.ID = srcCs.ClientState.GetID()
+	stat.Chains[src.ChainID].Client.Height = srcCs.ClientState.GetLatestHeight()
+
+	dstCs, err := dst.QueryClientState()
+	if err != nil {
+		return
+	}
+	stat.Chains[dst.ChainID].Client.ID = dstCs.ClientState.GetID()
+	stat.Chains[dst.ChainID].Client.Height = dstCs.ClientState.GetLatestHeight()
+
+	srcConn, err := src.QueryConnection(int64(sh.GetHeight(src.ChainID)))
+	if err != nil {
+		return
+	}
+	stat.Chains[src.ChainID].Connection.ID = srcConn.Connection.Identifier
+	stat.Chains[src.ChainID].Connection.State = srcConn.Connection.Connection.GetState().String()
+
+	dstConn, err := dst.QueryConnection(int64(sh.GetHeight(dst.ChainID)))
+	if err != nil {
+		return
+	}
+	stat.Chains[dst.ChainID].Connection.ID = dstConn.Connection.Identifier
+	stat.Chains[dst.ChainID].Connection.State = dstConn.Connection.Connection.GetState().String()
+
+	srcChan, err := src.QueryChannel(int64(sh.GetHeight(src.ChainID)))
+	if err != nil {
+		return
+	}
+	stat.Chains[src.ChainID].Channel.ID = srcChan.Channel.ChannelIdentifier
+	stat.Chains[src.ChainID].Channel.Port = srcChan.Channel.PortIdentifier
+	stat.Chains[src.ChainID].Channel.State = srcChan.Channel.Channel.GetState().String()
+	stat.Chains[src.ChainID].Channel.Order = srcChan.Channel.Channel.GetOrdering().String()
+
+	dstChan, err := dst.QueryChannel(int64(sh.GetHeight(dst.ChainID)))
+	if err != nil {
+		return
+	}
+	stat.Chains[dst.ChainID].Channel.ID = dstChan.Channel.ChannelIdentifier
+	stat.Chains[dst.ChainID].Channel.Port = dstChan.Channel.PortIdentifier
+	stat.Chains[dst.ChainID].Channel.State = dstChan.Channel.Channel.GetState().String()
+	stat.Chains[dst.ChainID].Channel.Order = dstChan.Channel.Channel.GetOrdering().String()
+
+	unrelayed, err := UnrelayedSequences(src, dst, sh)
+	if err != nil {
+		return
+	}
+	stat.UnrelayedSeq = unrelayed
+	return
 }
 
 // QueryTx takes a transaction hash and returns the transaction
@@ -1029,7 +1199,8 @@ func (c *Chain) formatTxResults(resTxs []*ctypes.ResultTx, resBlocks map[int64]*
 
 // formatTxResult parses a tx into a TxResponse object
 func (c *Chain) formatTxResult(resTx *ctypes.ResultTx, resBlock *ctypes.ResultBlock) (sdk.TxResponse, error) {
-	tx, err := parseTx(c.Amino, resTx.Tx)
+	defer c.UseSDKContext()()
+	tx, err := parseTx(c.Amino.Codec, resTx.Tx)
 	if err != nil {
 		return sdk.TxResponse{}, err
 	}
@@ -1084,4 +1255,8 @@ func ParseEvents(e string) ([]string, error) {
 		tmEvents = append(tmEvents, event)
 	}
 	return tmEvents, nil
+}
+
+func prefixClientKey(clientID string, key []byte) []byte {
+	return append([]byte(fmt.Sprintf("clients/%s/", clientID)), key...)
 }

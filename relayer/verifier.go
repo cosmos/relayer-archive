@@ -12,6 +12,7 @@ import (
 	tmclient "github.com/cosmos/cosmos-sdk/x/ibc/07-tendermint/types"
 	dbm "github.com/tendermint/tm-db"
 
+	retry "github.com/avast/retry-go"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/libs/log"
 	lite "github.com/tendermint/tendermint/lite2"
@@ -97,10 +98,16 @@ func (c *Chain) LiteClientWithoutTrust(db *dbm.GoLevelDB) (*lite.Client, error) 
 		return nil, err
 	}
 
+	// NOTE: currently we are discarding the very noisy lite client logs
+	// it would be nice if we could add a setting the chain or otherwise
+	// that allowed users to enable lite client logging. (maybe as a hidden prop
+	// on the Chain struct that users could pass in the config??)
+	logger := log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))
+
 	// TODO: provide actual witnesses!
 	return lite.NewClientFromTrustedStore(c.ChainID, c.GetTrustingPeriod(), httpProvider,
 		[]litep.Provider{httpProvider}, dbs.New(db, ""),
-		lite.Logger(log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))))
+		lite.Logger(logger))
 }
 
 // LiteClient initializes the lite client for a given chain.
@@ -110,10 +117,16 @@ func (c *Chain) LiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (*lit
 		return nil, err
 	}
 
+	// NOTE: currently we are discarding the very noisy lite client logs
+	// it would be nice if we could add a setting the chain or otherwise
+	// that allowed users to enable lite client logging. (maybe as a hidden prop
+	// on the Chain struct that users could pass in the config??)
+	logger := log.NewTMLogger(log.NewSyncWriter(ioutil.Discard))
+
 	// TODO: provide actual witnesses!
 	return lite.NewClient(c.ChainID, trustOpts, httpProvider,
 		[]litep.Provider{httpProvider}, dbs.New(db, ""),
-		lite.Logger(log.NewTMLogger(log.NewSyncWriter(os.Stdout))))
+		lite.Logger(logger))
 }
 
 // InitLiteClient instantantiates the lite client object and calls update
@@ -132,8 +145,18 @@ func (c *Chain) InitLiteClient(db *dbm.GoLevelDB, trustOpts lite.TrustOptions) (
 // TrustNodeInitClient trusts the configured node and initializes the lite client
 func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 	// fetch latest height from configured node
-	height, err := c.QueryLatestHeight()
-	if err != nil {
+	var (
+		height int64
+		err    error
+	)
+
+	if err := retry.Do(func() error {
+		height, err = c.QueryLatestHeight()
+		if err != nil || height == 0 {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 
@@ -159,9 +182,14 @@ func (c *Chain) TrustNodeInitClient(db *dbm.GoLevelDB) (*lite.Client, error) {
 // NewLiteDB returns a new instance of the liteclient database connection
 // CONTRACT: must close the database connection when done with it (defer df())
 func (c *Chain) NewLiteDB() (db *dbm.GoLevelDB, df func(), err error) {
-	db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
-	if err != nil {
-		return nil, nil, fmt.Errorf("can't open lite client database: %w", err)
+	if err := retry.Do(func() error {
+		db, err = dbm.NewGoLevelDB(c.ChainID, liteDir(c.HomePath))
+		if err != nil {
+			return fmt.Errorf("can't open lite client database: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
 	}
 
 	df = func() {
@@ -256,3 +284,17 @@ func (c *Chain) GetLiteSignedHeaderAtHeight(height int64) (*tmclient.Header, err
 
 // ErrLiteNotInitialized returns the cannonical error for a an uninitialized lite client
 var ErrLiteNotInitialized = errors.New("lite client is not initialized")
+
+// ForceInitLite forces initialization of the lite client from the configured node
+func (c *Chain) ForceInitLite() error {
+	db, df, err := c.NewLiteDB()
+	if err != nil {
+		return err
+	}
+	_, err = c.TrustNodeInitClient(db)
+	if err != nil {
+		return err
+	}
+	df()
+	return nil
+}

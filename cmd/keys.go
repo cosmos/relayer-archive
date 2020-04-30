@@ -19,25 +19,27 @@ import (
 	"fmt"
 
 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
-	"github.com/cosmos/cosmos-sdk/crypto/keys"
-	"github.com/cosmos/go-bip39"
+	"github.com/cosmos/cosmos-sdk/crypto/hd"
+	"github.com/iqlusioninc/relayer/relayer"
 	"github.com/spf13/cobra"
 )
 
-func init() {
-	keysCmd.AddCommand(keysAddCmd())
-	keysCmd.AddCommand(keysRestoreCmd())
-	keysCmd.AddCommand(keysDeleteCmd())
-	keysCmd.AddCommand(keysListCmd())
-	keysCmd.AddCommand(keysShowCmd())
-	keysCmd.AddCommand(keysExportCmd())
-}
-
 // keysCmd represents the keys command
-var keysCmd = &cobra.Command{
-	Use:     "keys",
-	Aliases: []string{"k"},
-	Short:   "helps users manage keys for multiple chains",
+func keysCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "keys",
+		Aliases: []string{"k"},
+		Short:   "manage keys held by the relayer for each chain",
+	}
+
+	cmd.AddCommand(keysAddCmd())
+	cmd.AddCommand(keysRestoreCmd())
+	cmd.AddCommand(keysDeleteCmd())
+	cmd.AddCommand(keysListCmd())
+	cmd.AddCommand(keysShowCmd())
+	cmd.AddCommand(keysExportCmd())
+
+	return cmd
 }
 
 // keysAddCmd respresents the `keys add` command
@@ -60,23 +62,23 @@ func keysAddCmd() *cobra.Command {
 				keyName = chain.Key
 			}
 
-			if keyExists(chain.Keybase, keyName) {
+			if chain.KeyExists(keyName) {
 				return errKeyExists(keyName)
 			}
 
-			mnemonic, err := createMnemonic()
+			mnemonic, err := relayer.CreateMnemonic()
 			if err != nil {
 				return err
 			}
 
-			info, err := chain.Keybase.CreateAccount(keyName, mnemonic, "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+			info, err := chain.Keybase.NewAccount(keyName, mnemonic, "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
 			if err != nil {
 				return err
 			}
 
 			ko := keyOutput{Mnemonic: mnemonic, Address: info.GetAddress().String()}
 
-			return queryOutput(ko, chain, cmd)
+			return chain.Print(ko, false, false)
 		},
 	}
 
@@ -102,11 +104,11 @@ func keysRestoreCmd() *cobra.Command {
 				return err
 			}
 
-			if keyExists(chain.Keybase, keyName) {
+			if chain.KeyExists(keyName) {
 				return errKeyExists(keyName)
 			}
 
-			info, err := chain.Keybase.CreateAccount(keyName, args[2], "", ckeys.DefaultKeyPass, keys.CreateHDPath(0, 0).String(), keys.Secp256k1)
+			info, err := chain.Keybase.NewAccount(keyName, args[2], "", hd.CreateHDPath(118, 0, 0).String(), hd.Secp256k1)
 			if err != nil {
 				return err
 			}
@@ -139,13 +141,13 @@ func keysDeleteCmd() *cobra.Command {
 				keyName = chain.Key
 			}
 
-			if !keyExists(chain.Keybase, keyName) {
+			if !chain.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
 			// TODO: prompt to delete with flag to ignore
 
-			err = chain.Keybase.Delete(keyName, ckeys.DefaultKeyPass, true)
+			err = chain.Keybase.Delete(keyName)
 			if err != nil {
 				panic(err)
 			}
@@ -207,11 +209,11 @@ func keysShowCmd() *cobra.Command {
 				keyName = chain.Key
 			}
 
-			if !keyExists(chain.Keybase, keyName) {
+			if !chain.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
-			info, err := chain.Keybase.Get(keyName)
+			info, err := chain.Keybase.Key(keyName)
 			if err != nil {
 				return err
 			}
@@ -238,46 +240,18 @@ func keysExportCmd() *cobra.Command {
 				return err
 			}
 
-			if !keyExists(chain.Keybase, keyName) {
+			if !chain.KeyExists(keyName) {
 				return errKeyDoesntExist(keyName)
 			}
 
-			info, err := chain.Keybase.ExportPrivKey(keyName, ckeys.DefaultKeyPass, ckeys.DefaultKeyPass)
+			info, err := chain.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
 			if err != nil {
 				return err
 			}
 
-			return queryOutput(info, chain, cmd)
+			return chain.Print(info, false, false)
 		},
 	}
 
 	return cmd
-}
-
-// returns true if there is a specified key in the keybase
-func keyExists(kb keys.Keybase, name string) bool {
-	keyInfos, err := kb.List()
-	if err != nil {
-		return false
-	}
-
-	for _, k := range keyInfos {
-		if k.GetName() == name {
-			return true
-		}
-	}
-	return false
-}
-
-// Returns a new mnemonic
-func createMnemonic() (string, error) {
-	entropySeed, err := bip39.NewEntropy(256)
-	if err != nil {
-		return "", err
-	}
-	mnemonic, err := bip39.NewMnemonic(entropySeed)
-	if err != nil {
-		return "", err
-	}
-	return mnemonic, nil
 }

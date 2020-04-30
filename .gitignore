@@ -2,3 +2,6 @@ build/
 data/
 coverage.out
 release.tar.gz
+.env
+nchainz/
+.idea/
