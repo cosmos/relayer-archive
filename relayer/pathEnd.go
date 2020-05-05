@@ -101,7 +101,7 @@ func (src *PathEnd) ConnAck(dstConnState connTypes.ConnectionResponse, dstConsSt
 	)
 }
 
-// ConnConfirm creates a MsgConnectionOpenAck
+// ConnConfirm creates a MsgConnectionOpenConfirm
 // NOTE: ADD NOTE ABOUT PROOF HEIGHT CHANGE HERE
 func (src *PathEnd) ConnConfirm(dstConnState connTypes.ConnectionResponse, signer sdk.AccAddress) sdk.Msg {
 	return connTypes.NewMsgConnectionOpenConfirm(
