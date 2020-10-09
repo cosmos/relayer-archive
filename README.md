@@ -69,8 +69,8 @@ $ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed
 
 # Then its time to initialize the relayer's lite clients for each chain
 # All data moving forward is validated by these lite clients.
-$ rly lite init ibc0 -f
-$ rly lite init ibc1 -f
+$ rly light init ibc0 -f
+$ rly light init ibc1 -f
 
 # At this point the relayer --home directory is ready for normal operations between
 # ibc0 and ibc1. Looking at the folder structure of the relayer at this point is helpful
