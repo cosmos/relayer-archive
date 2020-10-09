@@ -64,8 +64,8 @@ $ rly cfg add-dir configs/demo/
 $ cat ~/.relayer/config/config.yaml
 
 # Now, add the key seeds from each chain to the relayer to give it funds to work with
-$ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/n0/gaiacli/key_seed.json)"
-$ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/n0/gaiacli/key_seed.json)"
+$ rly keys restore ibc0 testkey "$(jq -r '.secret' data/ibc0/key_seed.json)"
+$ rly keys restore ibc1 testkey "$(jq -r '.secret' data/ibc1/key_seed.json)"
 
 # Then its time to initialize the relayer's lite clients for each chain
 # All data moving forward is validated by these lite clients.
