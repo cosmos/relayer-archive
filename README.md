@@ -1,5 +1,5 @@
 
-> This repo was archived on Oct 15, 2020 but made available for historical records.
+> This repo was archived on Oct 27, 2020 but made available for historical records.
 
 # DEPRECATED. All activity moved to https://github.com/cosmos/relayer
 
