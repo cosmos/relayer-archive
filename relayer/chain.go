@@ -465,7 +465,7 @@ func (src *Chain) GetRPCPort() string {
 // CreateTestKey creates a key for test chain
 func (src *Chain) CreateTestKey() error {
 	if src.KeyExists(src.Key) {
-		return fmt.Errorf("key %s exists for chain %s", src.ChainID, src.Key)
+		return fmt.Errorf("key %s exists for chain %s", src.Key, src.ChainID)
 	}
 
 	mnemonic, err := CreateMnemonic()
